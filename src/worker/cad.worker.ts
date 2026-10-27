@@ -13,7 +13,9 @@ import { ParamError } from "../models/types";
 import { translateMesh, weld, type Mesh } from "../export/mesh";
 import { write3mf } from "../export/threemf";
 import { writeStl } from "../export/stl";
-import type { ExportFile, PreviewPiece, Request, Response } from "./protocol";
+import { arrangeOnPlates } from "../models/plates";
+import type { Params } from "../models/types";
+import type { ExportFile, Plate, PreviewPiece, Request, Response } from "./protocol";
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -23,10 +25,10 @@ const models: Record<string, BuildFn> = {
   box: buildBox,
 };
 
-/** Gap between split pieces in the preview and in the exported 3MF. */
+/** Gap between split pieces in the assembled preview. */
 const EXPLODE_GAP = 6;
 
-let current: { model: string; pieces: BuiltPiece[] } | null = null;
+let current: { model: string; pieces: BuiltPiece[]; plateOffsets: [number, number, number][] } | null = null;
 
 const ready = (async () => {
   const OC = await opencascade({ locateFile: () => wasmUrl });
@@ -41,6 +43,16 @@ function post(msg: Response, transfer: Transferable[] = []) {
 /** Offsets that move every piece so its corner sits at its exploded position. */
 function explodedOffsets(pieces: BuiltPiece[]): [number, number, number][] {
   return pieces.map((p) => [p.grid[0] * EXPLODE_GAP, p.grid[1] * EXPLODE_GAP, 0]);
+}
+
+/** Lay the pieces out on print beds; returns per-piece translations plus the beds. */
+function plateLayout(pieces: BuiltPiece[], params: Params) {
+  const bedX = params.bedX as number;
+  const bedY = params.bedY as number;
+  const boxes = pieces.map((p) => p.shape.boundingBox.bounds);
+  const layout = arrangeOnPlates(boxes.map(([min, max]) => [max[0] - min[0], max[1] - min[1]]), bedX, bedY);
+  const offsets = layout.placements.map((pl, i): [number, number, number] => [pl.x - boxes[i][0][0], pl.y - boxes[i][0][1], -boxes[i][0][2]]);
+  return { offsets, plates: layout.plates.map(([x, y]): Plate => ({ x, y, w: bedX, d: bedY })), oversized: layout.oversized.length > 0 };
 }
 
 function meshOf(piece: BuiltPiece, tolerance: number, angularTolerance: number): Mesh {
@@ -62,28 +74,36 @@ async function handle(req: Request) {
     post({ type: "progress", id: req.id, stage: "building" });
     const { pieces, info } = build(req.params);
     freeCurrent();
-    current = { model: req.model, pieces };
+    const plates = plateLayout(pieces, req.params);
+    if (plates.oversized && !info.warnings.some((w) => w.key === "warn.largerThanBed")) {
+      info.warnings.push({ key: "warn.largerThanBed", vars: { size: req.params.bedX as number } });
+    }
+    if (plates.plates.length > 1) info.facts.push({ key: "fact.plates", vars: { n: plates.plates.length } });
+    current = { model: req.model, pieces, plateOffsets: plates.offsets };
     post({ type: "progress", id: req.id, stage: "meshing" });
     const offsets = explodedOffsets(pieces);
     const preview: PreviewPiece[] = pieces.map((p, i) => {
       const m = p.shape.mesh({ tolerance: 0.1, angularTolerance: 0.3 });
       return {
         name: p.name,
-        offset: offsets[i],
+        assembled: offsets[i],
+        onPlate: plates.offsets[i],
         positions: new Float32Array(m.vertices),
         normals: new Float32Array(m.normals),
         indices: new Uint32Array(m.triangles),
       };
     });
     const transfer = preview.flatMap((p) => [p.positions.buffer, p.normals.buffer, p.indices.buffer]);
-    post({ type: "generated", id: req.id, pieces: preview, info, ms: Math.round(performance.now() - t0) }, transfer);
+    post({ type: "generated", id: req.id, pieces: preview, plates: plates.plates, info, ms: Math.round(performance.now() - t0) }, transfer);
     return;
   }
 
   if (!current) throw new ParamError({ key: "err.nothingToExport" });
   post({ type: "progress", id: req.id, stage: "exporting" });
   const [tol, ang] = req.quality === "fine" ? [0.01, 0.05] : [0.03, 0.15];
-  const offsets = explodedOffsets(current.pieces);
+  // Exported parts sit where they are shown on the print beds: centred on the
+  // first bed, further beds next to it (like Bambu Studio's plate grid).
+  const offsets = current.plateOffsets;
   const meshes = current.pieces.map((p, i) => translateMesh(meshOf(p, tol, ang), ...offsets[i]));
   const base = `binfinity_${current.pieces.length === 1 ? current.pieces[0].name : current.model}`;
   let files: ExportFile[];

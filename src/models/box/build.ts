@@ -10,8 +10,8 @@ const LID_GAP = 10;
 const DIVIDER_CLEARANCE = 0.5;
 /** Wall of the lid's insert ring. */
 const LID_RING_WALL = 1.2;
-/** Largest bed the default printer (Bambu Lab P2S) offers. */
-const BED = 256;
+/** Build height of the default printer (Bambu Lab P2S). */
+const BED_HEIGHT = 256;
 
 /** Outline of the box footprint, shrunk by `inset` mm, centred on the origin. */
 type Outline = (inset: number) => Drawing;
@@ -116,8 +116,7 @@ export function buildBox(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     pieces.push({ name: "lid", shape: lidShape, origin: [sizeX + LID_GAP, 0, 0], size: [sizeX, sizeY, t + lip], grid: [0, 0] });
   }
 
-  if (sizeX > BED || sizeY > BED) warnings.push({ key: "warn.largerThanBed", vars: { size: BED } });
-  if (height > BED) warnings.push({ key: "warn.tallerThanBed", vars: { size: BED } });
+  if (height > BED_HEIGHT) warnings.push({ key: "warn.tallerThanBed", vars: { size: BED_HEIGHT } });
 
   const r1 = (n: number) => Math.round(n * 10) / 10;
   const facts: BuildInfo["facts"] = [

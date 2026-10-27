@@ -83,3 +83,37 @@ describe("buildBaseplate", () => {
     expect(total).toBeCloseTo(299.5, 1);
   }, 120_000);
 });
+
+describe("connectors", () => {
+  const split = { sizeMode: "drawer", drawerX: 300, drawerY: 200, style: "solid", floor: 3 };
+
+  it("adds dovetail tabs to one side and slots to the other", () => {
+    const plain = buildBaseplate(params(split)).pieces;
+    const puzzle = buildBaseplate(params({ ...split, connector: "puzzle" })).pieces;
+    expect(puzzle).toHaveLength(2);
+    const vol = (s: (typeof plain)[number]) => measureVolume(s.shape);
+    // Left piece gains the tabs, right piece loses slightly more (clearance).
+    expect(vol(puzzle[0])).toBeGreaterThan(vol(plain[0]));
+    expect(vol(puzzle[1])).toBeLessThan(vol(plain[1]));
+    const gained = vol(puzzle[0]) - vol(plain[0]);
+    const lost = vol(plain[1]) - vol(puzzle[1]);
+    expect(lost).toBeGreaterThan(gained * 0.9);
+    // The tabs stick out past the seam.
+    expect(puzzle[0].shape.boundingBox.width).toBeGreaterThan(plain[0].shape.boundingBox.width + 4);
+    for (const pc of puzzle) {
+      const m = pc.shape.mesh({ tolerance: 0.05, angularTolerance: 0.2 });
+      expect(isWatertight(weld(m.vertices, m.triangles).indices)).toBe(true);
+    }
+  }, 120_000);
+
+  it("drills matching pin holes on both sides", () => {
+    const plain = buildBaseplate(params(split)).pieces;
+    const pins = buildBaseplate(params({ ...split, connector: "pins" })).pieces;
+    for (let i = 0; i < 2; i++) expect(measureVolume(pins[i].shape)).toBeLessThan(measureVolume(plain[i].shape));
+  }, 120_000);
+
+  it("ignores connectors on a plate that is not split", () => {
+    const { pieces } = buildBaseplate(params({ style: "solid", connector: "puzzle" }));
+    expect(pieces).toHaveLength(1);
+  }, 60_000);
+});

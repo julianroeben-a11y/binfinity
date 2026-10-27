@@ -11,11 +11,12 @@
 - **Automatic splitting** for your print bed (default 256 × 256 mm, Bambu Lab P2S/P1S/X1). Pieces are balanced so you don't end up with a sliver.
 - Slim (open cells, minimal filament) or with a floor.
 - Magnet holes (default 6.5 mm × 2.4 mm for 6 × 2 mm magnets) and M3 countersunk screw holes.
+- **Connectors** for split plates (with floor): dovetail puzzle joints or holes for 1.75 mm filament pins.
 - Adjustable outer corner radius.
 
 **Bins**
 - Any size from 1 × 1 to 10 × 10 units; height in 7 mm units or in mm.
-- Standard Gridfinity feet, optional stacking lip with a printable 45° support.
+- Standard Gridfinity feet, optional stacking lip with a printable 45° support and rounded top edge.
 - Compartments in both directions, finger scoop, label shelf.
 - Wall, divider and floor thickness.
 - Magnet holes and M3 screw holes in every foot.
@@ -27,7 +28,8 @@
 - Lift-off lid with insert ring, printed as a second object.
 
 **General**
-- Live 3D preview, shareable links (all parameters live in the URL).
+- Live 3D preview on your print bed(s), or assembled; shareable links (all parameters live in the URL).
+- Parts are centred on the bed; anything that doesn't fit one bed is spread over several.
 - **3MF** export with one object per piece (Bambu Studio, Orca, PrusaSlicer), or **STL** (zipped when split).
 - Watertight, correctly oriented meshes, checked by the test suite.
 - Runs fully client-side: no server, no account, no tracking.
@@ -56,6 +58,17 @@ Then open `http://<your-host>:8090`.
 3. Install. Binfinity appears on the dashboard and listens on port 8090.
 
 Change the left-hand port in `docker-compose.yml` if 8090 is taken.
+
+### Updating
+
+The compose file includes an optional helper (`binfinity-updater`, a [Watchtower](https://hub.docker.com/r/nickfedor/watchtower) instance limited to this app). With it, the app shows its version in the top bar and an **Update** button that pulls the newest image and restarts the container; the page reloads itself when the new version is up. The helper needs access to the Docker socket. If you don't want that, delete the `binfinity-updater` service and `UPDATE_TOKEN`, and update by hand:
+
+```sh
+docker pull ghcr.io/julianroeben-a11y/binfinity:latest
+docker compose up -d   # in the directory of your compose file
+```
+
+`UPDATE_TOKEN` and `WATCHTOWER_HTTP_API_TOKEN` must match; the helper is not exposed outside the compose network.
 
 ## Development
 

@@ -1,6 +1,6 @@
-import { drawRectangle, drawRoundedRectangle, makeCompound, makeCylinder, sketchCircle, sketchRoundedRectangle, type Shape3D } from "replicad";
+import { draw, drawRectangle, drawRoundedRectangle, makeCompound, makeCylinder, sketchCircle, sketchRoundedRectangle, type Drawing, type Shape3D } from "replicad";
 import { GRID, HOLE_OFFSET, PLATE_PROFILE, PLATE_PROFILE_HEIGHT, PLATE_PROFILE_INSET, PLATE_RADIUS } from "../gridfinity";
-import type { BuildInfo, Params } from "../types";
+import { ParamError, type BuildInfo, type Params } from "../types";
 import type { BuiltPiece } from "../build-types";
 import { layoutBaseplate } from "./layout";
 
@@ -41,6 +41,51 @@ function screwHole(floor: number): Shape3D {
   return shaft.fuse(cone);
 }
 
+/** Dovetail connector dimensions (mm): half neck width, half head width, length past the seam. */
+const DOVETAIL = { neck: 3, head: 4.5, length: 5, overlap: 1 } as const;
+/** Holes for 1.75 mm filament used as dowel pins: diameter and depth on each side of the seam. */
+const PIN = { diameter: 2, depth: 8 } as const;
+
+/**
+ * Dovetail outline for a seam along Y at x = 0, centred on y = 0, pointing to
+ * +x. `grow` enlarges it (used for the matching slot).
+ */
+function dovetail(grow: number, back: number): Drawing {
+  const n = DOVETAIL.neck + grow;
+  const h = DOVETAIL.head + grow;
+  const l = DOVETAIL.length + grow;
+  return draw([-back, -n]).lineTo([0, -n]).lineTo([l, -h]).lineTo([l, h]).lineTo([0, n]).lineTo([-back, n]).close();
+}
+
+interface Seam {
+  /** Position of the seam line and the cell centres along it. */
+  at: number;
+  centres: number[];
+  /** "x": seam runs along Y at x = at; "y": seam runs along X at y = at. */
+  axis: "x" | "y";
+  /** Piece indices on the low and the high side. */
+  low: number;
+  high: number;
+}
+
+function seams(layout: ReturnType<typeof layoutBaseplate>): Seam[] {
+  const out: Seam[] = [];
+  const index = new Map(layout.pieces.map((pc, i) => [`${pc.ix},${pc.iy}`, i]));
+  layout.pieces.forEach((pc, i) => {
+    const right = index.get(`${pc.ix + 1},${pc.iy}`);
+    if (right !== undefined) {
+      const centres = Array.from({ length: pc.cellsY }, (_, j) => layout.y.padStart + (pc.cellY0 + j + 0.5) * GRID);
+      out.push({ at: pc.x1, centres, axis: "x", low: i, high: right });
+    }
+    const up = index.get(`${pc.ix},${pc.iy + 1}`);
+    if (up !== undefined) {
+      const centres = Array.from({ length: pc.cellsX }, (_, j) => layout.x.padStart + (pc.cellX0 + j + 0.5) * GRID);
+      out.push({ at: pc.y1, centres, axis: "y", low: i, high: up });
+    }
+  });
+  return out;
+}
+
 export function buildBaseplate(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   const layout = layoutBaseplate(p);
   const solid = p.style === "solid";
@@ -66,17 +111,45 @@ export function buildBaseplate(p: Params): { pieces: BuiltPiece[]; info: BuildIn
     : null;
   const screwTool = screws ? screwHole(floor) : null;
 
+  // Connectors between split pieces; they live in the floor, so they need one.
+  const connector = solid && layout.pieces.length > 1 ? (p.connector as string) : "none";
+  if (connector === "pins" && floor < PIN.diameter + 1) {
+    throw new ParamError({ key: "err.pinsNeedFloor", vars: { min: PIN.diameter + 1 } });
+  }
+  const tabs: Shape3D[][] = layout.pieces.map(() => []);
+  const cuts: Shape3D[][] = layout.pieces.map(() => []);
+  if (connector !== "none") {
+    const clearance = p.connectorClearance as number;
+    for (const seam of seams(layout)) {
+      for (const c of seam.centres) {
+        // Build along X at the origin, then rotate for seams that run along X.
+        const place = (shape: Shape3D) =>
+          seam.axis === "x" ? shape.translate(seam.at, c, 0) : shape.rotate(90, [0, 0, 0], [0, 0, 1]).translate(c, seam.at, 0);
+        if (connector === "puzzle") {
+          tabs[seam.low].push(place(dovetail(0, DOVETAIL.overlap).sketchOnPlane("XY").extrude(floor) as Shape3D));
+          cuts[seam.high].push(place(dovetail(clearance, EPS).sketchOnPlane("XY", -EPS).extrude(floor + EPS) as Shape3D));
+        } else {
+          const pin = () => place(makeCylinder(PIN.diameter / 2, 2 * PIN.depth, [-PIN.depth, 0, floor / 2], [1, 0, 0]));
+          cuts[seam.low].push(pin());
+          cuts[seam.high].push(pin());
+        }
+      }
+    }
+  }
+
   const pieces: BuiltPiece[] = layout.pieces.map((piece) => {
     const rect = drawRectangle(piece.x1 - piece.x0, piece.y1 - piece.y0).translate(
       (piece.x0 + piece.x1) / 2,
       (piece.y0 + piece.y1) / 2,
     );
     let shape: Shape3D = outline.clone().intersect(rect).sketchOnPlane("XY").extrude(height) as Shape3D;
+    const index = layout.pieces.indexOf(piece);
+    if (tabs[index].length) shape = shape.fuse(makeCompound(tabs[index]) as unknown as Shape3D);
 
     // Pockets and holes are cut in two passes: the tools inside one compound
     // must not overlap, and the magnet holes touch the pocket floors.
     const pockets: Shape3D[] = [];
-    const holes: Shape3D[] = [];
+    const holes: Shape3D[] = [...cuts[index]];
     for (let i = 0; i < piece.cellsX; i++) {
       for (let j = 0; j < piece.cellsY; j++) {
         const cx = layout.x.padStart + (piece.cellX0 + i + 0.5) * GRID;

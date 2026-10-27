@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { PreviewPiece } from "../worker/protocol";
+import type { Plate, PreviewPiece } from "../worker/protocol";
 
 const PIECE_COLORS = [0x4f8fd6, 0x3fae8c, 0xd9a441, 0xc96a5b, 0x8b7fd1, 0x5fb3c4];
 
@@ -11,7 +11,10 @@ export class Viewer {
   private camera = new THREE.PerspectiveCamera(35, 1, 1, 20000);
   private controls: OrbitControls;
   private group = new THREE.Group();
-  private bed: THREE.LineSegments | null = null;
+  private beds = new THREE.Group();
+  private pieces: PreviewPiece[] = [];
+  private plates: Plate[] = [];
+  private mode: "plates" | "assembled" = "plates";
   private hasFramed = false;
 
   constructor(private host: HTMLElement) {
@@ -32,6 +35,7 @@ export class Viewer {
     rim.position.set(2, 1, 1);
     this.scene.add(rim);
     this.scene.add(this.group);
+    this.scene.add(this.beds);
 
     new ResizeObserver(() => this.resize()).observe(host);
     this.resize();
@@ -49,7 +53,9 @@ export class Viewer {
     this.camera.updateProjectionMatrix();
   }
 
-  setPieces(pieces: PreviewPiece[]) {
+  setPieces(pieces: PreviewPiece[], plates: Plate[]) {
+    this.pieces = pieces;
+    this.plates = plates;
     for (const child of [...this.group.children]) {
       const m = child as THREE.Mesh;
       m.geometry.dispose();
@@ -67,14 +73,27 @@ export class Viewer {
         metalness: 0.05,
       });
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(...p.offset);
+      mesh.position.set(...(this.mode === "plates" ? p.onPlate : p.assembled));
       mesh.name = p.name;
       this.group.add(mesh);
     });
+    this.drawBeds();
     if (!this.hasFramed) {
       this.frame();
       this.hasFramed = true;
     }
+  }
+
+  /** Switch between pieces laid out on print beds and the assembled model. */
+  setMode(mode: "plates" | "assembled") {
+    if (mode === this.mode) return;
+    this.mode = mode;
+    this.group.children.forEach((child, i) => {
+      const p = this.pieces[i];
+      if (p) child.position.set(...(mode === "plates" ? p.onPlate : p.assembled));
+    });
+    this.drawBeds();
+    this.frame();
   }
 
   /** Re-frame the camera when the next set of pieces arrives (e.g. after switching model). */
@@ -82,26 +101,34 @@ export class Viewer {
     this.hasFramed = false;
   }
 
-  /** Outline of the print bed at z = 0 from the origin, or `null` to hide it. */
-  setBed(size: [number, number] | null) {
-    if (this.bed) {
-      this.bed.geometry.dispose();
-      this.scene.remove(this.bed);
-      this.bed = null;
+  /** Print bed outlines with a faint fill, only in plate mode. */
+  private drawBeds() {
+    for (const child of [...this.beds.children]) {
+      const o = child as THREE.Mesh | THREE.LineSegments;
+      o.geometry.dispose();
+      (o.material as THREE.Material).dispose();
+      this.beds.remove(o);
     }
-    if (!size) return;
-    const [x, y] = size;
-    const pts = [0, 0, 0, x, 0, 0, x, 0, 0, x, y, 0, x, y, 0, 0, y, 0, 0, y, 0, 0, 0, 0];
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-    this.bed = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.6 }));
-    this.bed.position.z = -0.05;
-    this.scene.add(this.bed);
+    if (this.mode !== "plates") return;
+    for (const pl of this.plates) {
+      const fill = new THREE.Mesh(
+        new THREE.PlaneGeometry(pl.w, pl.d),
+        new THREE.MeshBasicMaterial({ color: 0x8a94a6, transparent: true, opacity: 0.12, depthWrite: false }),
+      );
+      fill.position.set(pl.x + pl.w / 2, pl.y + pl.d / 2, -0.1);
+      const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(pl.w, pl.d)),
+        new THREE.LineBasicMaterial({ color: 0x8a94a6, transparent: true, opacity: 0.7 }),
+      );
+      edges.position.copy(fill.position);
+      this.beds.add(fill, edges);
+    }
   }
 
   /** Point the camera at the current model from the front-left, above. */
   frame() {
     const box = new THREE.Box3().setFromObject(this.group);
+    if (this.mode === "plates" && this.beds.children.length) box.union(new THREE.Box3().setFromObject(this.beds));
     if (box.isEmpty()) return;
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3()).length();

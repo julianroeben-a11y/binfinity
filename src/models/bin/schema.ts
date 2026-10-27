@@ -1,3 +1,4 @@
+import { printerGroup } from "../printer";
 import type { ModelSchema, Params } from "../types";
 
 const isUnits = (p: Params) => p.heightMode === "units";
@@ -45,5 +46,6 @@ export const binSchema: ModelSchema = {
         { key: "screws", label: "bin.screws", type: "bool", default: false },
       ],
     },
+    printerGroup,
   ],
 };

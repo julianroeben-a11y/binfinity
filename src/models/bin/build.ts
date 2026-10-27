@@ -18,6 +18,10 @@ import { ParamError, type BuildInfo, type Params } from "../types";
 const EPS = 0.01;
 const SCREW_DIAMETER = 3;
 const SCREW_DEPTH = 6;
+/** Width of the flat top of the stacking lip before rounding. */
+const LIP_RIDGE = 1;
+/** Radius of the rounded lip top edges. */
+const LIP_ROUND = 0.45;
 
 /** Rounded rectangle section, `inset` mm inside the bin outline, at height `z`. */
 function section(w: number, d: number, inset: number, z: number) {
@@ -45,14 +49,27 @@ function foot(): Shape3D {
 function lipTool(w: number, d: number, wall: number, top: number): Shape3D {
   const support = Math.max(0, LIP_INSET - wall);
   const zLip = top - LIP_HEIGHT;
+  const zChamfer = zLip + LIP.bottomChamfer + LIP.vertical;
+  // The upper chamfer stops short of the outer wall and leaves a flat ridge,
+  // which is then rounded off (a knife edge would be sharp and fragile).
   const sections = [
     section(w, d, LIP_INSET, zLip),
     section(w, d, LIP.topChamfer, zLip + LIP.bottomChamfer),
-    section(w, d, LIP.topChamfer, zLip + LIP.bottomChamfer + LIP.vertical),
-    section(w, d, 0, top + EPS),
+    section(w, d, LIP.topChamfer, zChamfer),
+    section(w, d, LIP_RIDGE, zChamfer + LIP.topChamfer - LIP_RIDGE),
+    section(w, d, LIP_RIDGE, top + EPS),
   ];
   const start = support > 0 ? section(w, d, wall, zLip - support) : section(w, d, LIP_INSET, zLip - EPS);
   return start.loftWith(sections, { ruled: true });
+}
+
+export /** Round the outer and inner edges of the lip ridge; keeps the shape if OpenCascade cannot. */
+function roundTop(shape: Shape3D, top: number): Shape3D {
+  try {
+    return shape.fillet(LIP_ROUND, (e) => e.inPlane("XY", top));
+  } catch {
+    return shape;
+  }
 }
 
 export interface CompartmentOptions {
@@ -156,7 +173,10 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   comp.delete();
   shape = shape.cut(makeCompound(comps) as unknown as Shape3D);
 
-  if (lip) shape = shape.cut(lipTool(w, d, wall, top));
+  if (lip) {
+    shape = shape.cut(lipTool(w, d, wall, top));
+    shape = roundTop(shape, top);
+  }
 
   // Magnet and screw holes in the feet. One tool per position (magnet pocket
   // and screw hole fused), so the copies in the compound never overlap.
