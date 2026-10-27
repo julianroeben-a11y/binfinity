@@ -1,0 +1,45 @@
+{
+  "name": "binfinity",
+  "version": "0.1.0",
+  "description": "Parametric generator for 3D-printable storage: Gridfinity baseplates and bins, custom boxes and inserts. Runs fully in the browser.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/julianroeben-a11y/binfinity.git"
+  },
+  "keywords": [
+    "gridfinity",
+    "3d-printing",
+    "parametric",
+    "cad",
+    "replicad",
+    "stl",
+    "3mf"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/julianroeben-a11y/binfinity/issues"
+  },
+  "homepage": "https://github.com/julianroeben-a11y/binfinity#readme",
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "replicad": "^1.2.0",
+    "replicad-opencascadejs": "^1.1.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  },
+  "private": true,
+  "type": "module"
+}
