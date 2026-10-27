@@ -6,6 +6,7 @@ import { binSchema } from "./models/bin/schema";
 import { boxSchema } from "./models/box/schema";
 import { sanitize, type Message, type ModelSchema, type Params } from "./models/types";
 import { renderForm } from "./ui/form";
+import { initUpdater } from "./ui/update";
 import { Viewer } from "./ui/viewer";
 import { CadClient } from "./worker/client";
 import type { ExportFile, ExportFormat } from "./worker/protocol";
@@ -74,7 +75,7 @@ async function generate() {
   try {
     const res = await cad.generate(state.model, { ...state.params });
     if (!res) return; // superseded by a newer request
-    viewer.setPieces(res.pieces);
+    viewer.setPieces(res.pieces, res.plates);
     lastInfo = res.info;
     renderInfo(res.info.facts, res.info.warnings);
     state.status = { key: "app.ready", vars: { ms: res.ms } };
@@ -146,24 +147,16 @@ function renderAll() {
   renderModelTabs();
   renderForm($("#form"), schemas[state.model], state.params, (p) => {
     state.params = p;
-    updateBed();
     scheduleGenerate();
   });
   renderInfo(lastInfo.facts, lastInfo.warnings);
   renderStatus();
 }
 
-/** Only the baseplate knows the bed size; other models hide the outline. */
-function updateBed() {
-  if (state.model === "baseplate") viewer.setBed([state.params.bedX as number, state.params.bedY as number]);
-  else viewer.setBed(null);
-}
-
 function selectModel(id: string, raw: Record<string, unknown> = {}) {
   if (id !== state.model) viewer.reframeNext();
   state.model = id;
   state.params = sanitize(schemas[id], raw);
-  updateBed();
   renderAll();
   scheduleGenerate();
 }
@@ -183,6 +176,12 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-export]")) {
   b.addEventListener("click", () => doExport(b.dataset.export as ExportFormat));
 }
 $("#reset-view").addEventListener("click", () => viewer.frame());
+for (const b of document.querySelectorAll<HTMLButtonElement>("[data-view]")) {
+  b.addEventListener("click", () => {
+    viewer.setMode(b.dataset.view as "plates" | "assembled");
+    for (const o of document.querySelectorAll<HTMLButtonElement>("[data-view]")) o.setAttribute("aria-pressed", String(o === b));
+  });
+}
 $("#share").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(location.href);
@@ -192,6 +191,8 @@ $("#share").addEventListener("click", async () => {
     // clipboard blocked; the URL in the address bar is still shareable
   }
 });
+
+initUpdater($("#version"), $<HTMLButtonElement>("#update"));
 
 const initial = readHash();
 selectModel(initial.model, initial.params);

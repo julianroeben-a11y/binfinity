@@ -1,3 +1,4 @@
+import { printerGroup } from "../printer";
 import type { ModelSchema, Params } from "../types";
 
 const isRect = (p: Params) => p.shape === "rect";
@@ -45,5 +46,6 @@ export const boxSchema: ModelSchema = {
         { key: "clearance", label: "box.clearance", type: "number", default: 0.3, min: 0, max: 2, step: 0.05, unit: "mm", visible: (p) => p.stackable === true || hasLid(p) },
       ],
     },
+    printerGroup,
   ],
 };

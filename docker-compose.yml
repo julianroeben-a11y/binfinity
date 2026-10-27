@@ -9,12 +9,32 @@ services:
     restart: unless-stopped
     ports:
       - "8090:8080"
+    environment:
+      # Enables the update button in the app. Must match the token below.
+      UPDATE_TOKEN: binfinity-update
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     x-casaos:
       ports:
         - container: "8080"
           description:
             en_us: Web UI
             de_de: Weboberfläche
+
+  # Optional helper for the in-app update button: pulls the newest image and
+  # recreates the binfinity container, nothing else (label-enable). Remove this
+  # service and UPDATE_TOKEN above if you don't want it; it needs the Docker socket.
+  binfinity-updater:
+    image: nickfedor/watchtower:1.23.1
+    container_name: binfinity-updater
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_HTTP_API_UPDATE: "true"
+      WATCHTOWER_HTTP_API_TOKEN: binfinity-update
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
 
 x-casaos:
   architectures:

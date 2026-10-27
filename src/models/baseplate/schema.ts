@@ -1,3 +1,4 @@
+import { printerGroup } from "../printer";
 import type { ModelSchema, Params } from "../types";
 
 const isDrawer = (p: Params) => p.sizeMode === "drawer";
@@ -30,15 +31,11 @@ export const baseplateSchema: ModelSchema = {
         { key: "magnetDiameter", label: "bp.magnetDiameter", type: "number", default: 6.5, min: 2, max: 12, step: 0.05, unit: "mm", visible: (p) => isSolid(p) && p.magnets === true },
         { key: "magnetDepth", label: "bp.magnetDepth", type: "number", default: 2.4, min: 0.5, max: 10, step: 0.05, unit: "mm", visible: (p) => isSolid(p) && p.magnets === true },
         { key: "screws", label: "bp.screws", type: "bool", default: false, visible: isSolid },
+        { key: "connector", label: "bp.connector", type: "select", default: "none", options: ["none", "puzzle", "pins"], visible: isSolid },
+        { key: "connectorClearance", label: "bp.connectorClearance", type: "number", default: 0.15, min: 0, max: 1, step: 0.05, unit: "mm", visible: (p) => isSolid(p) && p.connector === "puzzle" },
         { key: "cornerRadius", label: "bp.cornerRadius", type: "number", default: 4, min: 0.5, max: 20, step: 0.5, unit: "mm" },
       ],
     },
-    {
-      title: "group.printer",
-      fields: [
-        { key: "bedX", label: "bp.bedX", type: "number", default: 256, min: 50, max: 1000, step: 1, unit: "mm" },
-        { key: "bedY", label: "bp.bedY", type: "number", default: 256, min: 50, max: 1000, step: 1, unit: "mm" },
-      ],
-    },
+    printerGroup,
   ],
 };

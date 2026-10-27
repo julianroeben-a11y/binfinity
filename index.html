@@ -17,6 +17,8 @@
       </a>
       <nav id="models" class="models" aria-label="Model"></nav>
       <div class="topbar-right">
+        <span id="version" class="version"></span>
+        <button type="button" id="update" class="small" hidden></button>
         <label class="lang"><span class="sr-only" data-i18n="app.language"></span><select id="lang"></select></label>
         <a class="source" href="https://github.com/julianroeben-a11y/binfinity" target="_blank" rel="noopener" data-i18n="app.source"></a>
       </div>
@@ -36,6 +38,10 @@
       <section class="stage">
         <div id="viewport" class="viewport"></div>
         <div class="overlay overlay-top">
+          <div class="segmented" role="group">
+            <button type="button" class="ghost" data-view="plates" aria-pressed="true" data-i18n="view.plates"></button>
+            <button type="button" class="ghost" data-view="assembled" aria-pressed="false" data-i18n="view.assembled"></button>
+          </div>
           <button type="button" id="reset-view" class="ghost" data-i18n="view.reset"></button>
           <button type="button" id="share" class="ghost" data-i18n="export.share"></button>
         </div>
