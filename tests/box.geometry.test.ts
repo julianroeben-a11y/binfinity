@@ -28,6 +28,12 @@ function expectWatertight(shape: Shape3D) {
   expect([...edges.values()].every((n) => n === 2)).toBe(true);
 }
 
+/** Cross-section area of a shape just below `z`, from a thin slice. */
+function areaBelow(shape: Shape3D, z: number): number {
+  const t = 0.02;
+  return measureVolume(shape.clone().intersect(makeBox([-500, -500, z - t], [500, 500, z]))) / t;
+}
+
 describe("buildBox", () => {
   it("builds a rectangular box with the given outer size", () => {
     const { pieces } = buildBox(params());
@@ -59,7 +65,7 @@ describe("buildBox", () => {
     const { pieces } = buildBox(params({ stackable: true, divX: 2, divY: 2 }));
     const box = pieces[0].shape;
     // The bottom slice is narrower than the opening: outer minus 2 × (wall + clearance).
-    const foot = box.clone().intersect(makeBox([-1, -1, 0], [200, 200, 0.5])).boundingBox;
+    const foot = box.clone().intersect(makeBox([-1, -1, 1], [200, 200, 1.5])).boundingBox;
     expect(foot.width).toBeCloseTo(120 - 2 * (1.6 + 0.3), 2);
     expect(foot.height).toBeCloseTo(80 - 2 * (1.6 + 0.3), 2);
     expectWatertight(box);
@@ -73,6 +79,25 @@ describe("buildBox", () => {
     expect(lid.bounds[0][0]).toBeGreaterThan(120);
     expectWatertight(pieces[1].shape);
   }, 60_000);
+
+  it("rounds the rim and the divider tops and chamfers the bed edge", () => {
+    for (const over of [{}, { divX: 3, divY: 2 }, { divX: 3, lid: "lift" }, { shape: "hex", diameter: 70 }]) {
+      const { pieces } = buildBox(params(over));
+      const box = pieces[0].shape;
+      const h = box.boundingBox.bounds[1][2];
+      expect(areaBelow(box, h - 0.01)).toBeLessThan(areaBelow(box, h - 1) * 0.6);
+      // Bottom slab: the chamfer makes the very bottom smaller than 1 mm up.
+      expect(areaBelow(box, 0.02)).toBeLessThan(areaBelow(box, 1.02));
+      expectWatertight(box);
+    }
+  }, 120_000);
+
+  it("rounds the dividers below a lid", () => {
+    const { pieces } = buildBox(params({ divX: 3, lid: "lift" }));
+    // Lid lip 5 mm, clearance 0.5: dividers end at 44.5 mm.
+    const box = pieces[0].shape;
+    expect(areaBelow(box, 44.49)).toBeLessThan(areaBelow(box, 43) - 2 * 1.2 * 76 * 0.8);
+  }, 120_000);
 
   it("rejects boxes that are too low", () => {
     expect(() => buildBox(params({ height: 5, floor: 4 }))).toThrow(ParamError);

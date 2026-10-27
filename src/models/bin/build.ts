@@ -1,4 +1,5 @@
-import { draw, drawRoundedRectangle, makeBox, makeCompound, makeCylinder, sketchRoundedRectangle, type Shape3D } from "replicad";
+import { draw, drawRoundedRectangle, makeBox, makeCompound, makeCylinder, sketchCircle, sketchRoundedRectangle, type Shape3D, type Sketch } from "replicad";
+import { roundEdgesAt } from "../edges";
 import {
   BIN_CLEARANCE,
   BIN_FOOT,
@@ -46,7 +47,7 @@ function foot(): Shape3D {
  * Tool that removes the stacking-lip pocket and the 45° support below it. It
  * spans the whole bin, so it also trims the divider tops below the lip.
  */
-function lipTool(w: number, d: number, wall: number, top: number): Shape3D {
+function lipTool(w: number, d: number, wall: number, top: number, below = 0): Shape3D {
   const support = Math.max(0, LIP_INSET - wall);
   const zLip = top - LIP_HEIGHT;
   const zChamfer = zLip + LIP.bottomChamfer + LIP.vertical;
@@ -59,18 +60,21 @@ function lipTool(w: number, d: number, wall: number, top: number): Shape3D {
     section(w, d, LIP_RIDGE, zChamfer + LIP.topChamfer - LIP_RIDGE),
     section(w, d, LIP_RIDGE, top + EPS),
   ];
-  const start = support > 0 ? section(w, d, wall, zLip - support) : section(w, d, LIP_INSET, zLip - EPS);
-  return start.loftWith(sections, { ruled: true });
+  const base = support > 0 ? [section(w, d, wall, zLip - support)] : [section(w, d, LIP_INSET, zLip - EPS)];
+  // Optionally reach `below` mm further down at the inner wall, to trim the dividers.
+  if (below > 0) base.unshift(section(w, d, wall, zLip - support - below));
+  const [start, ...rest] = base;
+  return start.loftWith([...rest, ...sections], { ruled: true });
 }
 
-export /** Round the outer and inner edges of the lip ridge; keeps the shape if OpenCascade cannot. */
-function roundTop(shape: Shape3D, top: number): Shape3D {
-  try {
-    return shape.fillet(LIP_ROUND, (e) => e.inPlane("XY", top));
-  } catch {
-    return shape;
-  }
-}
+/** Radius of the rounded top edges of walls and dividers. */
+const EDGE_ROUND = 0.5;
+/** Below a stacking lip, dividers end this far under the lip support. */
+const DIVIDER_DROP = 0.5;
+/** Without a lip, the label shelf ends this far below the rim. */
+const LABEL_DROP = 1;
+/** 45° chamfer around magnet holes, makes pressing magnets in easier. */
+const MAGNET_CHAMFER = 0.3;
 
 export interface CompartmentOptions {
   width: number;
@@ -81,13 +85,56 @@ export interface CompartmentOptions {
   scoop: number;
   label: number;
   labelTop: number;
+  /**
+   * Round the tops of the dividers: on the sides that face a divider the
+   * cavity widens in a quarter circle of `radius` up to `z`, meeting the
+   * neighbour's cavity on the divider midline, so the divider ends in a
+   * half-round. `z1` is ignored then; whatever sits above `z` must be cut away
+   * separately. Sides facing an outer wall stay straight.
+   */
+  flare?: { left: boolean; right: boolean; front: boolean; back: boolean; radius: number; z: number };
 }
+
+/** Steps used to approximate the rounded divider tops. */
+const FLARE_STEPS = 2;
 
 /** Cavity of one compartment, minus the material for scoop and label shelf. */
 export function compartmentTool(o: CompartmentOptions): Shape3D {
-  let tool: Shape3D = drawRoundedRectangle(o.width, o.depth, o.radius).sketchOnPlane("XY", o.z0).extrude(o.z1 - o.z0) as Shape3D;
+  let tool: Shape3D;
+  const f = o.flare;
+  if (f) {
+    const at = (g: number, z: number) => {
+      const [l, r, fr, b] = [f.left, f.right, f.front, f.back].map((side) => (side ? g : 0));
+      return drawRoundedRectangle(o.width + l + r, o.depth + fr + b, o.radius)
+        .translate((r - l) / 2, (b - fr) / 2)
+        .sketchOnPlane("XY", z) as Sketch;
+    };
+    const zArc = f.z - f.radius;
+    const sections = [at(0, zArc)];
+    // The last arc step ends EPS above `z`: a section exactly in the plane of
+    // the next cut would make that cut fail.
+    for (let k = 1; k < FLARE_STEPS; k++) {
+      const a = (Math.PI / 2) * (k / FLARE_STEPS);
+      sections.push(at(f.radius * (1 - Math.cos(a)), zArc + f.radius * Math.sin(a)));
+    }
+    sections.push(at(f.radius, f.z + EPS));
+    tool = at(0, o.z0).loftWith(sections, { ruled: true });
+  } else {
+    tool = drawRoundedRectangle(o.width, o.depth, o.radius).sketchOnPlane("XY", o.z0).extrude(o.z1 - o.z0) as Shape3D;
+  }
+  const fill = compartmentFill(o);
+  if (fill) tool = tool.cut(fill);
+  return tool;
+}
+
+/**
+ * Material left in a compartment for the finger scoop and the label
+ * shelf, centred like the compartment.
+ */
+function compartmentFill(o: CompartmentOptions): Shape3D | null {
   const len = o.width + 2 * EPS;
   const x0 = -o.width / 2 - EPS;
+  const parts: Shape3D[] = [];
   if (o.scoop > 0) {
     // A block in the front-bottom edge with a cylinder taken out leaves a
     // concave ramp, so parts can be slid out with a finger.
@@ -95,21 +142,23 @@ export function compartmentTool(o: CompartmentOptions): Shape3D {
     const yFront = -o.depth / 2;
     const block = makeBox([x0, yFront - EPS, o.z0 - EPS], [x0 + len, yFront + r, o.z0 + r]);
     const round = makeCylinder(r, len + 2 * EPS, [x0 - EPS, yFront + r, o.z0 + r], [1, 0, 0]);
-    tool = tool.cut(block.cut(round));
+    parts.push(block.cut(round));
   }
   if (o.label > 0) {
     // 45° shelf along the back wall; its top is where the label goes.
     const yBack = o.depth / 2 + EPS;
     const d = o.label;
-    const prism = draw([yBack, o.labelTop])
-      .lineTo([yBack - d, o.labelTop])
-      .lineTo([yBack, o.labelTop - d])
-      .close()
-      .sketchOnPlane("YZ", x0)
-      .extrude(len) as Shape3D;
-    tool = tool.cut(prism);
+    parts.push(
+      draw([yBack, o.labelTop])
+        .lineTo([yBack - d, o.labelTop])
+        .lineTo([yBack, o.labelTop - d])
+        .close()
+        .sketchOnPlane("YZ", x0)
+        .extrude(len) as Shape3D,
+    );
   }
-  return tool;
+  if (!parts.length) return null;
+  return parts.length === 1 ? parts[0] : parts[0].fuse(parts[1]);
 }
 
 export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
@@ -151,38 +200,60 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   let shape = body.fuse(makeCompound(cellCenters.map(([x, y]) => footTool.clone().translate(x, y, 0))) as unknown as Shape3D);
   footTool.delete();
 
-  // Compartments.
-  const comp = compartmentTool({
+  // Compartments. Below a stacking lip the dividers stop a little under the
+  // lip support and end in a half-round; without a lip they reach the top and
+  // are rounded together with the walls.
+  const divided = divX > 1 || divY > 1;
+  const zDiv = cavityTop - DIVIDER_DROP;
+  const flared = lip && divided;
+
+  // The lip goes first and its ridge is rounded while the shape is still
+  // simple; that is several times faster than doing it after the compartments.
+  if (lip) {
+    shape = shape.cut(lipTool(w, d, wall, top, flared ? DIVIDER_DROP : 0));
+    shape = roundEdgesAt(shape, top, LIP_ROUND);
+  }
+  const compRadius = Math.max(0.5, Math.min(BIN_RADIUS - wall, cw / 2 - 0.01, cd / 2 - 0.01));
+  const opts = {
     width: cw,
     depth: cd,
-    radius: Math.max(0.5, Math.min(BIN_RADIUS - wall, cw / 2 - 0.01, cd / 2 - 0.01)),
+    radius: compRadius,
     z0: floorZ,
     z1: cavityTop + EPS,
     scoop,
     label: labelDepth,
-    labelTop: cavityTop,
-  });
+    // Without a lip the shelf stays below the rim, so the rim can be rounded.
+    labelTop: flared ? zDiv - divider / 2 - 0.2 : lip ? cavityTop : cavityTop - LABEL_DROP,
+  };
+  const tools = new Map<string, Shape3D>();
   const comps: Shape3D[] = [];
   for (let i = 0; i < divX; i++) {
     for (let j = 0; j < divY; j++) {
+      const sides = { left: i > 0, right: i < divX - 1, front: j > 0, back: j < divY - 1 };
+      const key = flared ? Object.values(sides).join() : "";
+      let tool = tools.get(key);
+      if (!tool) {
+        tool = compartmentTool({ ...opts, flare: flared ? { ...sides, radius: divider / 2, z: zDiv } : undefined });
+        tools.set(key, tool);
+      }
       const x = -innerW / 2 + cw / 2 + i * (cw + divider);
       const y = -innerD / 2 + cd / 2 + j * (cd + divider);
-      comps.push(comp.clone().translate(x, y, 0));
+      comps.push(tool.clone().translate(x, y, 0));
     }
   }
-  comp.delete();
+  for (const t of tools.values()) t.delete();
   shape = shape.cut(makeCompound(comps) as unknown as Shape3D);
 
-  if (lip) {
-    shape = shape.cut(lipTool(w, d, wall, top));
-    shape = roundTop(shape, top);
-  }
+  // Without a lip, round the wall and divider tops.
+  if (!lip) shape = roundEdgesAt(shape, top, Math.min(EDGE_ROUND, wall / 2 - 0.1, divider / 2 - 0.1));
 
   // Magnet and screw holes in the feet. One tool per position (magnet pocket
   // and screw hole fused), so the copies in the compound never overlap.
   let holeTool: Shape3D | null = null;
   if (p.magnets === true) {
-    holeTool = makeCylinder((p.magnetDiameter as number) / 2, (p.magnetDepth as number) + EPS, [0, 0, -EPS]);
+    const r = (p.magnetDiameter as number) / 2;
+    const rim = sketchCircle(r + MAGNET_CHAMFER + EPS, { plane: "XY", origin: -EPS }).loftWith(sketchCircle(r, { plane: "XY", origin: MAGNET_CHAMFER }));
+    holeTool = makeCylinder(r, (p.magnetDepth as number) + EPS, [0, 0, -EPS]).fuse(rim);
   }
   if (p.screws === true) {
     const screw = makeCylinder(SCREW_DIAMETER / 2, SCREW_DEPTH + EPS, [0, 0, -EPS]);

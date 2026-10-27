@@ -17,7 +17,7 @@ export const boxSchema: ModelSchema = {
         { key: "depth", label: "box.depth", type: "number", default: 80, min: 10, max: 1000, step: 0.5, unit: "mm", visible: isRect },
         { key: "diameter", label: "box.diameter", type: "number", default: 80, min: 10, max: 1000, step: 0.5, unit: "mm", visible: (p) => !isRect(p) },
         { key: "height", label: "box.height", type: "number", default: 50, min: 5, max: 1000, step: 0.5, unit: "mm" },
-        { key: "cornerRadius", label: "box.cornerRadius", type: "number", default: 5, min: 0.5, max: 100, step: 0.5, unit: "mm", visible: isRect },
+        { key: "cornerRadius", label: "box.cornerRadius", type: "number", default: 5, min: 0.5, max: 100, step: 0.5, unit: "mm", visible: (p) => p.shape !== "round" },
       ],
     },
     {
