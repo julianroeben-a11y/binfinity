@@ -7,6 +7,7 @@ import wasmUrl from "replicad-opencascadejs/wasm?url";
 import { setOC } from "replicad";
 import { buildBaseplate } from "../models/baseplate/build";
 import { buildBin } from "../models/bin/build";
+import { buildBox } from "../models/box/build";
 import type { BuildFn, BuiltPiece } from "../models/build-types";
 import { ParamError } from "../models/types";
 import { translateMesh, weld, type Mesh } from "../export/mesh";
@@ -19,6 +20,7 @@ declare const self: DedicatedWorkerGlobalScope;
 const models: Record<string, BuildFn> = {
   baseplate: buildBaseplate,
   bin: buildBin,
+  box: buildBox,
 };
 
 /** Gap between split pieces in the preview and in the exported 3MF. */

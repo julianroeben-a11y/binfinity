@@ -1,8 +1,8 @@
 # Binfinity
 
-**Parametric generator for 3D-printable storage.** Gridfinity baseplates and bins today, custom boxes and inserts next. Everything is computed in your browser with a real CAD kernel ([OpenCascade](https://dev.opencascade.org/) via [replicad](https://replicad.xyz)), and you download STL or 3MF files ready for your slicer.
+**Parametric generator for 3D-printable storage.** Gridfinity baseplates and bins plus custom boxes today, inserts next. Everything is computed in your browser with a real CAD kernel ([OpenCascade](https://dev.opencascade.org/) via [replicad](https://replicad.xyz)), and you download STL or 3MF files ready for your slicer.
 
-> 🇩🇪 Binfinity erzeugt Gridfinity-Baseplates und -Bins (bald auch eigene Boxen und Einsätze) direkt im Browser und exportiert STL oder 3MF. Die Oberfläche gibt es auf Deutsch und Englisch. Self-Hosting per Docker, z. B. auf ZimaOS, siehe unten.
+> 🇩🇪 Binfinity erzeugt Gridfinity-Baseplates und -Bins sowie eigene Boxen (bald auch Einsätze) direkt im Browser und exportiert STL oder 3MF. Die Oberfläche gibt es auf Deutsch und Englisch. Self-Hosting per Docker, z. B. auf ZimaOS, siehe unten.
 
 ## Features
 
@@ -20,6 +20,12 @@
 - Wall, divider and floor thickness.
 - Magnet holes and M3 screw holes in every foot.
 
+**Boxes**
+- Rectangular (with corner radius), round or hexagonal, sized by outside or inside dimensions in mm.
+- Wall and floor thickness, compartments for rectangular boxes.
+- Stackable: a recessed foot drops into the opening of the box below.
+- Lift-off lid with insert ring, printed as a second object.
+
 **General**
 - Live 3D preview, shareable links (all parameters live in the URL).
 - **3MF** export with one object per piece (Bambu Studio, Orca, PrusaSlicer), or **STL** (zipped when split).
@@ -30,7 +36,7 @@
 
 1. ✅ Gridfinity baseplates
 2. ✅ Gridfinity bins
-3. Custom boxes in mm, optionally stackable, with lids
+3. ✅ Custom boxes in mm, stackable, with lids
 4. Custom inserts and cut-outs
 
 ## Self-hosting with Docker

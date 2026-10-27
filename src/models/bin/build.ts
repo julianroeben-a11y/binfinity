@@ -55,7 +55,7 @@ function lipTool(w: number, d: number, wall: number, top: number): Shape3D {
   return start.loftWith(sections, { ruled: true });
 }
 
-interface CompartmentOptions {
+export interface CompartmentOptions {
   width: number;
   depth: number;
   radius: number;
@@ -67,7 +67,7 @@ interface CompartmentOptions {
 }
 
 /** Cavity of one compartment, minus the material for scoop and label shelf. */
-function compartmentTool(o: CompartmentOptions): Shape3D {
+export function compartmentTool(o: CompartmentOptions): Shape3D {
   let tool: Shape3D = drawRoundedRectangle(o.width, o.depth, o.radius).sketchOnPlane("XY", o.z0).extrude(o.z1 - o.z0) as Shape3D;
   const len = o.width + 2 * EPS;
   const x0 = -o.width / 2 - EPS;

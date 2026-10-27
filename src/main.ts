@@ -3,15 +3,16 @@ import { zipSync } from "fflate";
 import { getLang, languages, setLang, t, tm } from "./i18n";
 import { baseplateSchema } from "./models/baseplate/schema";
 import { binSchema } from "./models/bin/schema";
+import { boxSchema } from "./models/box/schema";
 import { sanitize, type Message, type ModelSchema, type Params } from "./models/types";
 import { renderForm } from "./ui/form";
 import { Viewer } from "./ui/viewer";
 import { CadClient } from "./worker/client";
 import type { ExportFile, ExportFormat } from "./worker/protocol";
 
-const schemas: Record<string, ModelSchema> = { baseplate: baseplateSchema, bin: binSchema };
+const schemas: Record<string, ModelSchema> = { baseplate: baseplateSchema, bin: binSchema, box: boxSchema };
 /** Models shown in the switcher but not built yet. */
-const upcoming = ["box"];
+const upcoming = ["insert"];
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 

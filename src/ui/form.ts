@@ -8,9 +8,13 @@ import type { Field, ModelSchema, Params } from "../models/types";
 export function renderForm(host: HTMLElement, schema: ModelSchema, values: Params, onChange: (p: Params) => void) {
   host.replaceChildren();
   const rows: { field: Field; row: HTMLElement }[] = [];
+  const sets: { fs: HTMLElement; fields: Field[] }[] = [];
 
+  const shown = (f: Field) => (f.visible ? f.visible(values) : true);
   const updateVisibility = () => {
-    for (const { field, row } of rows) row.hidden = field.visible ? !field.visible(values) : false;
+    for (const { field, row } of rows) row.hidden = !shown(field);
+    // Hide a whole group when none of its fields apply (e.g. compartments of a round box).
+    for (const { fs, fields } of sets) fs.hidden = !fields.some(shown);
   };
 
   for (const group of schema.groups) {
@@ -18,6 +22,7 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
     const legend = document.createElement("legend");
     legend.textContent = t(group.title);
     fs.append(legend);
+    sets.push({ fs, fields: group.fields });
 
     for (const field of group.fields) {
       const row = document.createElement("label");
