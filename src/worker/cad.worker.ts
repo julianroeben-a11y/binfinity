@@ -6,6 +6,7 @@ import opencascade from "replicad-opencascadejs";
 import wasmUrl from "replicad-opencascadejs/wasm?url";
 import { setOC } from "replicad";
 import { buildBaseplate } from "../models/baseplate/build";
+import { buildBin } from "../models/bin/build";
 import type { BuildFn, BuiltPiece } from "../models/build-types";
 import { ParamError } from "../models/types";
 import { translateMesh, weld, type Mesh } from "../export/mesh";
@@ -17,6 +18,7 @@ declare const self: DedicatedWorkerGlobalScope;
 
 const models: Record<string, BuildFn> = {
   baseplate: buildBaseplate,
+  bin: buildBin,
 };
 
 /** Gap between split pieces in the preview and in the exported 3MF. */
@@ -81,7 +83,7 @@ async function handle(req: Request) {
   const [tol, ang] = req.quality === "fine" ? [0.01, 0.05] : [0.03, 0.15];
   const offsets = explodedOffsets(current.pieces);
   const meshes = current.pieces.map((p, i) => translateMesh(meshOf(p, tol, ang), ...offsets[i]));
-  const base = current.model === "baseplate" ? "binfinity_baseplate" : `binfinity_${current.model}`;
+  const base = `binfinity_${current.pieces.length === 1 ? current.pieces[0].name : current.model}`;
   let files: ExportFile[];
   if (req.format === "3mf") {
     const parts = current.pieces.map((p, i) => ({ name: p.name, mesh: meshes[i] }));

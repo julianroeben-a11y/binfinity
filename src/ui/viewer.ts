@@ -77,12 +77,20 @@ export class Viewer {
     }
   }
 
-  /** Outline of the print bed, drawn at z = 0 around the origin. */
-  setBed(x: number, y: number) {
+  /** Re-frame the camera when the next set of pieces arrives (e.g. after switching model). */
+  reframeNext() {
+    this.hasFramed = false;
+  }
+
+  /** Outline of the print bed at z = 0 from the origin, or `null` to hide it. */
+  setBed(size: [number, number] | null) {
     if (this.bed) {
       this.bed.geometry.dispose();
       this.scene.remove(this.bed);
+      this.bed = null;
     }
+    if (!size) return;
+    const [x, y] = size;
     const pts = [0, 0, 0, x, 0, 0, x, 0, 0, x, y, 0, x, y, 0, 0, y, 0, 0, y, 0, 0, 0, 0];
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
