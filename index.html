@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Binfinity – free, open-source generator for Gridfinity baseplates, bins and custom storage boxes. Runs in your browser, exports STL and 3MF." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <title>Binfinity</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Binfinity">
+        <img src="./favicon.svg" alt="" width="28" height="28" />
+        <span class="brand-name">Binfinity</span>
+        <span class="brand-tag" data-i18n="app.tagline"></span>
+      </a>
+      <nav id="models" class="models" aria-label="Model"></nav>
+      <div class="topbar-right">
+        <label class="lang"><span class="sr-only" data-i18n="app.language"></span><select id="lang"></select></label>
+        <a class="source" href="https://github.com/julianroeben-a11y/binfinity" target="_blank" rel="noopener" data-i18n="app.source"></a>
+      </div>
+    </header>
+    <main class="layout">
+      <aside class="panel">
+        <form id="form" class="form" onsubmit="return false"></form>
+        <div class="export">
+          <div class="export-buttons">
+            <button type="button" class="primary" data-export="3mf" data-i18n="export.3mf"></button>
+            <button type="button" data-export="stl" data-i18n="export.stl"></button>
+          </div>
+          <label class="field field-bool fine"><input type="checkbox" id="fine" /> <span data-i18n="export.fine"></span></label>
+          <p class="hint" data-i18n="export.hint3mf"></p>
+        </div>
+      </aside>
+      <section class="stage">
+        <div id="viewport" class="viewport"></div>
+        <div class="overlay overlay-top">
+          <button type="button" id="reset-view" class="ghost" data-i18n="view.reset"></button>
+          <button type="button" id="share" class="ghost" data-i18n="export.share"></button>
+        </div>
+        <div class="overlay overlay-bottom">
+          <p id="status" class="status" role="status" aria-live="polite"></p>
+          <ul id="facts" class="facts"></ul>
+          <ul id="warnings" class="warnings"></ul>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

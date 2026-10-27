@@ -1,0 +1,38 @@
+# Binfinity for ZimaOS / CasaOS (works with plain Docker Compose too).
+# ZimaOS: App Store → "+" → "Install a customized app" → Import → paste this file.
+name: binfinity
+
+services:
+  binfinity:
+    image: ghcr.io/julianroeben-a11y/binfinity:latest
+    container_name: binfinity
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    x-casaos:
+      ports:
+        - container: "8080"
+          description:
+            en_us: Web UI
+            de_de: Weboberfläche
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: binfinity
+  author: julianroeben-a11y
+  developer: julianroeben-a11y
+  category: Utilities
+  icon: https://raw.githubusercontent.com/julianroeben-a11y/binfinity/main/public/favicon.svg
+  tagline:
+    en_us: Gridfinity & storage box generator
+    de_de: Gridfinity- & Aufbewahrungs-Generator
+  description:
+    en_us: Generate Gridfinity baseplates and bins and export STL or 3MF for your slicer. Everything is computed in your browser.
+    de_de: Erzeugt Gridfinity-Baseplates und -Bins als STL oder 3MF für deinen Slicer. Alles wird im Browser berechnet.
+  title:
+    en_us: Binfinity
+  index: /
+  port_map: "8090"
+  scheme: http
