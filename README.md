@@ -11,7 +11,7 @@
 - **Automatic splitting** for your print bed (default 256 × 256 mm, Bambu Lab P2S/P1S/X1). Pieces are balanced so you don't end up with a sliver.
 - Slim (open cells, minimal filament) or with a floor.
 - Magnet holes (default 6.5 mm × 2.4 mm for 6 × 2 mm magnets) and M3 countersunk screw holes.
-- **Connectors** for split plates (with floor): dovetail puzzle joints or holes for 1.75 mm filament pins.
+- **Connectors** for split plates (with floor): dovetail puzzle joints, printed pegs that the neighbour is pressed onto, or holes for 1.75 mm filament pins.
 - Adjustable outer corner radius.
 
 **Bins**
@@ -31,6 +31,7 @@
 - Live 3D preview on your print bed(s), or assembled; shareable links (all parameters live in the URL).
 - Parts are centred on the bed; anything that doesn't fit one bed is spread over several.
 - **3MF** export with one object per piece (Bambu Studio, Orca, PrusaSlicer), or **STL** (zipped when split).
+- No sharp edges: ridges, rims, divider tops and lids are rounded, edges on the print bed get a small chamfer, magnet holes a lead-in.
 - Watertight, correctly oriented meshes, checked by the test suite.
 - Runs fully client-side: no server, no account, no tracking.
 

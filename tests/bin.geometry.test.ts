@@ -1,7 +1,7 @@
 // Builds real bin geometry with OpenCascade (WASM) in Node.
 import { beforeAll, describe, expect, it } from "vitest";
 import opencascade from "replicad-opencascadejs";
-import { measureVolume, setOC } from "replicad";
+import { makeBox, measureVolume, setOC, type Shape3D } from "replicad";
 import { buildBin } from "../src/models/bin/build";
 import { binSchema } from "../src/models/bin/schema";
 import { defaults, sanitize, ParamError } from "../src/models/types";
@@ -31,6 +31,12 @@ function checkMesh(shape: Parameters<typeof measureVolume>[0]) {
   expect(isWatertight(weld(m.vertices, m.triangles).indices)).toBe(true);
 }
 
+/** Cross-section area of a shape just below `z`, from a thin slice. */
+function areaBelow(shape: Shape3D, z: number): number {
+  const t = 0.02;
+  return measureVolume(shape.clone().intersect(makeBox([-500, -500, z - t], [500, 500, z]))) / t;
+}
+
 describe("buildBin", () => {
   it("builds a 2x1x3 bin with lip at the Gridfinity footprint", () => {
     const { pieces } = buildBin(params());
@@ -48,6 +54,27 @@ describe("buildBin", () => {
     const { pieces } = buildBin(params({ lip: false, heightUnits: 4 }));
     expect(pieces[0].shape.boundingBox.depth).toBeCloseTo(28, 2);
   }, 60_000);
+
+  it("rounds the top edges of walls and dividers", () => {
+    for (const over of [{ lip: false, divX: 3, divY: 2 }, { lip: true }]) {
+      const { pieces } = buildBin(params(over));
+      const shape = pieces[0].shape;
+      const top = shape.boundingBox.bounds[1][2];
+      // With rounded edges the very top is much narrower than 1 mm below it.
+      expect(areaBelow(shape, top - 0.01)).toBeLessThan(areaBelow(shape, top - 1) * 0.5);
+      checkMesh(shape);
+    }
+  }, 120_000);
+
+  it("rounds the divider tops below the stacking lip", () => {
+    const plain = buildBin(params({ lip: true, divX: 3 })).pieces[0].shape;
+    // Dividers end 0.5 mm under the lip support (21 − 1.4 − 0.5 = 19.1 mm) in a half-round.
+    const near = areaBelow(plain, 19.09);
+    const lower = areaBelow(plain, 18);
+    // Wall ring only near the top of the dividers, wall ring plus dividers lower down.
+    expect(lower - near).toBeGreaterThan(2 * 1.2 * 39 * 0.8);
+    checkMesh(plain);
+  }, 120_000);
 
   it("adds dividers, scoop and label as extra material", () => {
     const plain = measureVolume(buildBin(params()).pieces[0].shape);

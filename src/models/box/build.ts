@@ -1,6 +1,7 @@
 import { drawCircle, drawPolysides, drawRoundedRectangle, makeCompound, type Drawing, type Shape3D, type Sketch } from "replicad";
 import type { BuiltPiece } from "../build-types";
 import { compartmentTool } from "../bin/build";
+import { chamferEdgesAt, roundEdgesAt } from "../edges";
 import { ParamError, type BuildInfo, type Params } from "../types";
 
 const EPS = 0.01;
@@ -10,6 +11,10 @@ const LID_GAP = 10;
 const DIVIDER_CLEARANCE = 0.5;
 /** Wall of the lid's insert ring. */
 const LID_RING_WALL = 1.2;
+/** Radius of the rounded top edges (rim, dividers, lid). */
+const EDGE_ROUND = 0.6;
+/** 45° chamfer on the edges that sit on the print bed. */
+const BED_CHAMFER = 0.6;
 /** Build height of the default printer (Bambu Lab P2S). */
 const BED_HEIGHT = 256;
 
@@ -20,7 +25,11 @@ function outlineFor(p: Params, w: number, d: number): Outline {
   if (p.shape === "round") return (i) => drawCircle(w / 2 - i);
   if (p.shape === "hex") {
     // `w` is the width across flats; drawPolysides takes the corner radius.
-    return (i) => drawPolysides((w / 2 - i) / Math.cos(Math.PI / 6), 6);
+    const r = Math.min(p.cornerRadius as number, w / 4);
+    return (i) => {
+      const hex = drawPolysides((w / 2 - i) / Math.cos(Math.PI / 6), 6);
+      return hex.fillet(Math.max(0.2, r - i));
+    };
   }
   const r = Math.min(p.cornerRadius as number, w / 2 - 0.01, d / 2 - 0.01);
   return (i) => drawRoundedRectangle(w - 2 * i, d - 2 * i, Math.max(0.2, r - i));
@@ -61,6 +70,7 @@ export function buildBox(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   } else {
     shape = extrude(outline(0), 0, height);
   }
+  shape = chamferEdgesAt(shape, 0, BED_CHAMFER);
 
   // Cavity: one per compartment for rectangles, a single one otherwise.
   const warnings: BuildInfo["warnings"] = [];
@@ -77,20 +87,41 @@ export function buildBox(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     compD = (innerD - (divY - 1) * divider) / divY;
     if (compW < 3 || compD < 3) throw new ParamError({ key: "err.tooManyCompartments" });
     const r = Math.max(0.5, Math.min((p.cornerRadius as number) - wall, compW / 2 - 0.01, compD / 2 - 0.01));
-    const tool = compartmentTool({ width: compW, depth: compD, radius: r, z0: floorZ, z1: height + EPS, scoop: 0, label: 0, labelTop: 0 });
+    // Keep the dividers below anything that reaches into the opening; there
+    // they end in a half-round. Otherwise they are rounded with the rim.
+    const reach = Math.max(stackable ? stackDepth : 0, lid ? (p.lidLip as number) : 0);
+    const zDiv = height - reach - DIVIDER_CLEARANCE;
+    const variants = new Map<string, Shape3D>();
     const tools: Shape3D[] = [];
     for (let i = 0; i < divX; i++) {
       for (let j = 0; j < divY; j++) {
+        const sides = { left: i > 0, right: i < divX - 1, front: j > 0, back: j < divY - 1 };
+        const key = reach > 0 ? Object.values(sides).join() : "";
+        let tool = variants.get(key);
+        if (!tool) {
+          tool = compartmentTool({
+            width: compW,
+            depth: compD,
+            radius: r,
+            z0: floorZ,
+            z1: height + EPS,
+            scoop: 0,
+            label: 0,
+            labelTop: 0,
+            flare: reach > 0 ? { ...sides, radius: divider / 2, z: zDiv } : undefined,
+          });
+          variants.set(key, tool);
+        }
         tools.push(tool.clone().translate(-innerW / 2 + compW / 2 + i * (compW + divider), -innerD / 2 + compD / 2 + j * (compD + divider), 0));
       }
     }
-    tool.delete();
+    for (const t of variants.values()) t.delete();
     shape = shape.cut(makeCompound(tools) as unknown as Shape3D);
-    // Keep the dividers below anything that reaches into the opening.
-    const reach = Math.max(stackable ? stackDepth : 0, lid ? (p.lidLip as number) : 0);
-    if (reach > 0) shape = shape.cut(extrude(outline(wall), height - reach - DIVIDER_CLEARANCE, height + EPS));
+    if (reach > 0) shape = shape.cut(extrude(outline(wall), zDiv, height + EPS));
+    shape = roundEdgesAt(shape, height, Math.min(EDGE_ROUND, wall / 2 - 0.1, reach > 0 ? Infinity : divider / 2 - 0.1));
   } else {
     shape = shape.cut(extrude(outline(wall), floorZ, height + EPS));
+    shape = roundEdgesAt(shape, height, Math.min(EDGE_ROUND, wall / 2 - 0.1));
   }
 
   // Box with its footprint corner at the origin. Hexagons are wider across
@@ -107,10 +138,13 @@ export function buildBox(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     const lip = p.lidLip as number;
     const ringOuter = footInset;
     const ringWall = Math.min(LID_RING_WALL, (Math.min(w, d) - 2 * ringOuter) / 2 - 1);
-    let lidShape = extrude(outline(0), 0, t);
+    // The bed side becomes the visible top of the closed box: chamfer it,
+    // round the edge above it.
+    let lidShape = chamferEdgesAt(extrude(outline(0), 0, t), 0, Math.min(BED_CHAMFER, t / 3));
+    lidShape = roundEdgesAt(lidShape, t, Math.min(EDGE_ROUND, t / 3));
     if (ringWall > 0.4) {
       const ring = extrude(outline(ringOuter), t - EPS, t + lip).cut(extrude(outline(ringOuter + ringWall), t - 2 * EPS, t + lip + EPS));
-      lidShape = lidShape.fuse(ring);
+      lidShape = roundEdgesAt(lidShape.fuse(ring), t + lip, Math.min(EDGE_ROUND, ringWall / 2 - 0.1));
     }
     lidShape = lidShape.translate(sizeX + LID_GAP - minX, -minY, 0);
     pieces.push({ name: "lid", shape: lidShape, origin: [sizeX + LID_GAP, 0, 0], size: [sizeX, sizeY, t + lip], grid: [0, 0] });

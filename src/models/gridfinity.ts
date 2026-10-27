@@ -25,6 +25,15 @@ export const PLATE_PROFILE_HEIGHT =
 /** Horizontal inset of the pocket bottom relative to the 42 mm top edge, per side. */
 export const PLATE_PROFILE_INSET = PLATE_PROFILE.bottomChamfer + PLATE_PROFILE.topChamfer; // 2.85
 
+/**
+ * Radius of the rounded ridge between baseplate cells. The 45° walls of two
+ * neighbouring pockets would otherwise meet in a knife edge; the round sits
+ * tangent to both walls, so the plate ends up R × (√2 − 1) lower than 4.65 mm.
+ * Bins rest on the chamfers, not on the ridge, so the fit does not change.
+ */
+export const PLATE_RIDGE_RADIUS = 0.5;
+export const PLATE_HEIGHT = PLATE_PROFILE_HEIGHT - PLATE_RIDGE_RADIUS * (Math.SQRT2 - 1); // 4.44
+
 /** Magnet / screw positions: offset from the cell centre in X and Y. */
 export const HOLE_OFFSET = 13;
 
