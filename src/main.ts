@@ -2,15 +2,16 @@ import "./style.css";
 import { zipSync } from "fflate";
 import { getLang, languages, setLang, t, tm } from "./i18n";
 import { baseplateSchema } from "./models/baseplate/schema";
+import { binSchema } from "./models/bin/schema";
 import { sanitize, type Message, type ModelSchema, type Params } from "./models/types";
 import { renderForm } from "./ui/form";
 import { Viewer } from "./ui/viewer";
 import { CadClient } from "./worker/client";
 import type { ExportFile, ExportFormat } from "./worker/protocol";
 
-const schemas: Record<string, ModelSchema> = { baseplate: baseplateSchema };
+const schemas: Record<string, ModelSchema> = { baseplate: baseplateSchema, bin: binSchema };
 /** Models shown in the switcher but not built yet. */
-const upcoming = ["bin", "box"];
+const upcoming = ["box"];
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 
@@ -144,17 +145,24 @@ function renderAll() {
   renderModelTabs();
   renderForm($("#form"), schemas[state.model], state.params, (p) => {
     state.params = p;
-    if (state.model === "baseplate") viewer.setBed(p.bedX as number, p.bedY as number);
+    updateBed();
     scheduleGenerate();
   });
   renderInfo(lastInfo.facts, lastInfo.warnings);
   renderStatus();
 }
 
+/** Only the baseplate knows the bed size; other models hide the outline. */
+function updateBed() {
+  if (state.model === "baseplate") viewer.setBed([state.params.bedX as number, state.params.bedY as number]);
+  else viewer.setBed(null);
+}
+
 function selectModel(id: string, raw: Record<string, unknown> = {}) {
+  if (id !== state.model) viewer.reframeNext();
   state.model = id;
   state.params = sanitize(schemas[id], raw);
-  if (id === "baseplate") viewer.setBed(state.params.bedX as number, state.params.bedY as number);
+  updateBed();
   renderAll();
   scheduleGenerate();
 }

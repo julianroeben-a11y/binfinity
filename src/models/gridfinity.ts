@@ -27,3 +27,33 @@ export const PLATE_PROFILE_INSET = PLATE_PROFILE.bottomChamfer + PLATE_PROFILE.t
 
 /** Magnet / screw positions: offset from the cell centre in X and Y. */
 export const HOLE_OFFSET = 13;
+
+/** Bins are 0.5 mm smaller than the grid so they drop into the baseplate. */
+export const BIN_CLEARANCE = 0.5;
+/** Outer corner radius of a bin. */
+export const BIN_RADIUS = 3.75;
+
+/**
+ * Bin foot profile, bottom to top: 0.8 mm 45° chamfer, 1.8 mm vertical, 2.15 mm
+ * 45° chamfer. The foot is 41.5 mm wide at the top and 35.6 mm at the bottom.
+ */
+export const BIN_FOOT = {
+  bottomChamfer: 0.8,
+  vertical: 1.8,
+  topChamfer: 2.15,
+} as const;
+export const BIN_FOOT_HEIGHT = BIN_FOOT.bottomChamfer + BIN_FOOT.vertical + BIN_FOOT.topChamfer; // 4.75
+export const BIN_FOOT_INSET = BIN_FOOT.bottomChamfer + BIN_FOOT.topChamfer; // 2.95
+
+/**
+ * Stacking lip, from the top edge downwards: 1.9 mm 45° chamfer, 1.8 mm
+ * vertical, 0.7 mm 45° chamfer. Below that a 45° support slope runs back to the
+ * inner wall so the lip prints without overhangs.
+ */
+export const LIP = {
+  topChamfer: 1.9,
+  vertical: 1.8,
+  bottomChamfer: 0.7,
+} as const;
+export const LIP_HEIGHT = LIP.topChamfer + LIP.vertical + LIP.bottomChamfer; // 4.4
+export const LIP_INSET = LIP.topChamfer + LIP.bottomChamfer; // 2.6

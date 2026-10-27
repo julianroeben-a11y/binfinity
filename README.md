@@ -1,8 +1,8 @@
 # Binfinity
 
-**Parametric generator for 3D-printable storage.** Gridfinity baseplates today, bins, custom boxes and inserts next. Everything is computed in your browser with a real CAD kernel ([OpenCascade](https://dev.opencascade.org/) via [replicad](https://replicad.xyz)), and you download STL or 3MF files ready for your slicer.
+**Parametric generator for 3D-printable storage.** Gridfinity baseplates and bins today, custom boxes and inserts next. Everything is computed in your browser with a real CAD kernel ([OpenCascade](https://dev.opencascade.org/) via [replicad](https://replicad.xyz)), and you download STL or 3MF files ready for your slicer.
 
-> 🇩🇪 Binfinity erzeugt Gridfinity-Baseplates (bald auch Bins, eigene Boxen und Einsätze) direkt im Browser und exportiert STL oder 3MF. Die Oberfläche gibt es auf Deutsch und Englisch. Self-Hosting per Docker, z. B. auf ZimaOS, siehe unten.
+> 🇩🇪 Binfinity erzeugt Gridfinity-Baseplates und -Bins (bald auch eigene Boxen und Einsätze) direkt im Browser und exportiert STL oder 3MF. Die Oberfläche gibt es auf Deutsch und Englisch. Self-Hosting per Docker, z. B. auf ZimaOS, siehe unten.
 
 ## Features
 
@@ -13,6 +13,13 @@
 - Magnet holes (default 6.5 mm × 2.4 mm for 6 × 2 mm magnets) and M3 countersunk screw holes.
 - Adjustable outer corner radius.
 
+**Bins**
+- Any size from 1 × 1 to 10 × 10 units; height in 7 mm units or in mm.
+- Standard Gridfinity feet, optional stacking lip with a printable 45° support.
+- Compartments in both directions, finger scoop, label shelf.
+- Wall, divider and floor thickness.
+- Magnet holes and M3 screw holes in every foot.
+
 **General**
 - Live 3D preview, shareable links (all parameters live in the URL).
 - **3MF** export with one object per piece (Bambu Studio, Orca, PrusaSlicer), or **STL** (zipped when split).
@@ -22,7 +29,7 @@
 ## Roadmap
 
 1. ✅ Gridfinity baseplates
-2. Gridfinity bins: size in units, height, dividers, label tab, stacking lip, scoop, magnet/screw holes
+2. ✅ Gridfinity bins
 3. Custom boxes in mm, optionally stackable, with lids
 4. Custom inserts and cut-outs
 
