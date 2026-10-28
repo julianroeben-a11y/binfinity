@@ -18,8 +18,8 @@ export const itemPresets: Record<string, Params> = {
   drills: { opening: "set", sizes: "2-10", holeDepth: 20, gap: 4 },
   aa: { opening: "round", size: 14.5, holeDepth: 20, itemX: 14.5, gap: 5 },
   aaa: { opening: "round", size: 10.5, holeDepth: 18, itemX: 10.5, gap: 5 },
-  usba: { opening: "slot", size: 12, slotWidth: 4.5, holeDepth: 11, itemX: 22, itemY: 12, gap: 6 },
-  usbc: { opening: "slot", size: 8.4, slotWidth: 2.6, holeDepth: 7, itemX: 22, itemY: 10, gap: 6 },
+  usba: { opening: "slot", size: 12, slotWidth: 4.5, holeDepth: 11, itemX: 21, itemY: 10.5, gap: 6 },
+  usbc: { opening: "slot", size: 8.4, slotWidth: 2.6, holeDepth: 7, itemX: 21, itemY: 10, gap: 6 },
   sd: { opening: "slot", size: 24, slotWidth: 2.1, holeDepth: 14, itemX: 24, itemY: 2.1, gap: 8 },
   microsd: { opening: "slot", size: 11, slotWidth: 1, holeDepth: 7, itemX: 11, itemY: 1, gap: 6 },
 };

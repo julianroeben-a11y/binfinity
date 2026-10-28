@@ -81,9 +81,17 @@ interface ItemSpec {
   /** Room the item takes along X and Y. */
   footX: number;
   footY: number;
-  gap: number;
+  /** Free space towards the neighbours along X and Y. */
+  gapX: number;
+  gapY: number;
   depth: number;
 }
+
+/**
+ * Slots: sticks and cards are gripped on their broad faces, so the finger
+ * gap goes there; side by side along their length they only need this much.
+ */
+const SLOT_END_GAP = 2;
 
 /** Opening and room of one kind of item, from the item fields (or a preset). */
 function itemSpec(v: Params, clearance: number): ItemSpec {
@@ -92,19 +100,26 @@ function itemSpec(v: Params, clearance: number): ItemSpec {
   let oy = kind === "slot" ? (v.slotWidth as number) + clearance : kind === "hex" ? (ox * 2) / Math.sqrt(3) : ox;
   if (kind === "slot" && oy > ox) [ox, oy] = [oy, ox];
   const item = v.itemX as number;
+  const gap = v.gap as number;
+  const footX = Math.max(ox, item + clearance);
+  const footY = Math.max(oy, (kind === "slot" ? (v.itemY as number) : item) + clearance);
+  // Openings always keep at least a web of material between them.
   return {
     kind,
     ox,
     oy,
-    footX: Math.max(ox, item + clearance),
-    footY: Math.max(oy, (kind === "slot" ? (v.itemY as number) : item) + clearance),
-    gap: v.gap as number,
+    footX,
+    footY,
+    gapX: Math.max(kind === "slot" ? Math.min(gap, SLOT_END_GAP) : gap, ox + WEB - footX),
+    gapY: Math.max(gap, oy + WEB - footY),
     depth: v.holeDepth as number,
   };
 }
 
 const r2 = (n: number) => Math.round(n * 10) / 10;
 const entry = (gap: number) => Math.max(0, Math.min(ENTRY, (gap - WEB) / 2));
+/** Entry chamfer that keeps a web of material to every neighbour. */
+const specEntry = (s: ItemSpec) => Math.max(0, Math.min(ENTRY, (s.footX - s.ox + s.gapX - WEB) / 2, (s.footY - s.oy + s.gapY - WEB) / 2));
 
 interface Plan {
   holes: Opening[];
@@ -141,13 +156,13 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
     const kinds = mixItems
       .map((k) => ({ spec: itemSpec(itemPresets[k], clearance), n: Math.round(p[`count_${k}`] as number) }))
       .filter((k) => k.n > 0)
-      .map(({ spec, n }) => ({ n, spec: spec.kind === "slot" ? { ...spec, ox: spec.oy, oy: spec.ox, footX: spec.footY, footY: spec.footX } : spec }))
+      .map(({ spec, n }) => ({ n, spec: spec.kind === "slot" ? { ...spec, ox: spec.oy, oy: spec.ox, footX: spec.footY, footY: spec.footX, gapX: spec.gapY, gapY: spec.gapX } : spec }))
       .sort((a, b) => b.spec.footY - a.spec.footY);
     const specs = kinds.flatMap(({ spec, n }) => Array<ItemSpec>(n).fill(spec));
-    const { placed, missing } = layoutShelves(ax, ay, specs.map((s) => ({ w: s.footX, d: s.footY, gap: Math.max(s.gap, WEB) })));
+    const { placed, missing } = layoutShelves(ax, ay, specs.map((s) => ({ w: s.footX, d: s.footY, gap: s.gapX, rowGap: s.gapY })));
     const holes = placed.map(({ x, y, index }) => {
       const s = specs[index];
-      return { x, y, kind: s.kind, x0: s.ox, y0: s.oy, depth: s.depth, chamfer: entry(Math.max(s.gap, WEB)) };
+      return { x, y, kind: s.kind, x0: s.ox, y0: s.oy, depth: s.depth, chamfer: specEntry(s) };
     });
     return {
       holes,
@@ -157,10 +172,7 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
     };
   }
 
-  const { ox, oy, footX, footY } = itemSpec(p, clearance);
-  // Items keep `gap` between them, the openings at least a web of material.
-  const gapX = Math.max(gap, ox + WEB - footX);
-  const gapY = Math.max(gap, oy + WEB - footY);
+  const { ox, oy, footX, footY, gapX, gapY } = itemSpec(p, clearance);
 
   // Slots may be turned by 90° if that fits more of them.
   const stagger = kind !== "slot" && p.stagger === true;
