@@ -25,6 +25,8 @@ export const boxSchema: ModelSchema = {
       fields: [
         { key: "wall", label: "bin.wall", type: "number", default: 1.6, min: 0.8, max: 10, step: 0.05, unit: "mm" },
         { key: "floor", label: "bin.floor", type: "number", default: 1.6, min: 0.6, max: 20, step: 0.1, unit: "mm" },
+        { key: "honeycomb", label: "bin.honeycomb", type: "bool", default: false, visible: isRect },
+        { key: "honeycombSize", label: "bin.honeycombSize", type: "number", default: 8, min: 4, max: 30, step: 0.5, unit: "mm", visible: (p) => p.honeycomb === true && isRect(p) },
       ],
     },
     {

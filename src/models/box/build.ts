@@ -2,6 +2,7 @@ import { drawCircle, drawPolysides, drawRoundedRectangle, makeCompound, type Dra
 import type { BuiltPiece } from "../build-types";
 import { compartmentTool } from "../bin/build";
 import { chamferEdgesAt, roundEdgesAt } from "../edges";
+import { HONEYCOMB_WEB, honeycombTool } from "../honeycomb";
 import { ParamError, type BuildInfo, type Params } from "../types";
 
 const EPS = 0.01;
@@ -124,6 +125,32 @@ export function buildBox(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     shape = roundEdgesAt(shape, height, Math.min(EDGE_ROUND, wall / 2 - 0.1));
   }
 
+  // Honeycomb openings in the outer walls, clear of the floor, the rim band
+  // (where a lid or a stacked box reaches in) and the dividers.
+  let honeycombCount = 0;
+  if (rect && p.honeycomb === true) {
+    const web = HONEYCOMB_WEB;
+    const corner = Math.min(p.cornerRadius as number, w / 2, d / 2);
+    const compR = divided ? Math.max(0.5, Math.min(corner - wall, compW / 2 - 0.01, compD / 2 - 0.01)) : Math.max(0.2, corner - wall);
+    const divider = p.divider as number;
+    const reach = Math.max(stackable ? stackDepth : 0, lid ? (p.lidLip as number) : 0);
+    const { tool, count } = honeycombTool({
+      width: w,
+      depth: d,
+      wall,
+      z0: floorZ + web,
+      z1: height - Math.max(reach + DIVIDER_CLEARANCE + web, 3),
+      cell: p.honeycombSize as number,
+      cornerMargin: Math.max(corner, wall + compR) + web,
+      dividersX: Array.from({ length: divX - 1 }, (_, i) => -(w - 2 * wall) / 2 + (i + 1) * compW + (i + 0.5) * divider),
+      dividersY: Array.from({ length: divY - 1 }, (_, i) => -(d - 2 * wall) / 2 + (i + 1) * compD + (i + 0.5) * divider),
+      dividerMargin: divider / 2 + compR + web,
+    });
+    if (tool) shape = shape.cut(tool);
+    honeycombCount = count;
+    if (!count) warnings.push({ key: "warn.honeycombNone" });
+  }
+
   // Box with its footprint corner at the origin. Hexagons are wider across
   // the corners than across the flats, so use the real bounding box.
   const [[minX, minY], [maxX, maxY]] = shape.boundingBox.bounds;
@@ -159,6 +186,7 @@ export function buildBox(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   ];
   if (divided) facts.push({ key: "fact.compartment", vars: { n: divX * divY, x: r1(compW), y: r1(compD), z: r1(height - floorZ) } });
   if (lid) facts.push({ key: "fact.withLid" });
+  if (honeycombCount) facts.push({ key: "fact.honeycomb", vars: { n: honeycombCount } });
 
   const label = rect ? `${r1(w)}x${r1(d)}x${r1(height)}` : `${p.shape}${r1(w)}x${r1(height)}`;
   pieces[0].name = `box_${label}`;

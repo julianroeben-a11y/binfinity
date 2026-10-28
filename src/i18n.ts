@@ -101,6 +101,11 @@ const en: Dict = {
   "bin.screws": "Screw holes (M3)",
   "fact.compartment": "{n} × compartment {x} × {y} × {z} mm",
   "warn.labelShrunk": "The label shelf was made smaller to fit the compartment.",
+  "bin.honeycomb": "Honeycomb walls",
+  "bin.honeycomb.hint": "Hexagonal openings in the outer walls save filament. Small parts can fall through.",
+  "bin.honeycombSize": "Opening size",
+  "fact.honeycomb": "{n} honeycomb openings",
+  "warn.honeycombNone": "The walls are too small for honeycomb openings of this size.",
   "err.binTooLow": "The bin is too low for this floor. Use at least {min} mm.",
   "err.tooManyCompartments": "Too many compartments for this bin size.",
 
@@ -258,6 +263,11 @@ const de: Dict = {
   "bin.screws": "Schraublöcher (M3)",
   "fact.compartment": "{n} × Fach {x} × {y} × {z} mm",
   "warn.labelShrunk": "Die Beschriftungskante wurde verkleinert, damit sie ins Fach passt.",
+  "bin.honeycomb": "Wabenwände",
+  "bin.honeycomb.hint": "Sechseckige Öffnungen in den Außenwänden sparen Filament. Kleinteile können durchfallen.",
+  "bin.honeycombSize": "Wabengröße",
+  "fact.honeycomb": "{n} Waben-Öffnungen",
+  "warn.honeycombNone": "Die Wände sind für Waben dieser Größe zu klein.",
   "err.binTooLow": "Der Bin ist für diesen Boden zu niedrig. Mindestens {min} mm.",
   "err.tooManyCompartments": "Zu viele Fächer für diese Bin-Größe.",
 

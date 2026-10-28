@@ -1,5 +1,6 @@
 import { draw, drawRoundedRectangle, makeBox, makeCompound, makeCylinder, sketchCircle, sketchRoundedRectangle, type Shape3D, type Sketch } from "replicad";
 import { roundEdgesAt } from "../edges";
+import { HONEYCOMB_WEB, honeycombTool } from "../honeycomb";
 import {
   BIN_CLEARANCE,
   BIN_FOOT,
@@ -206,6 +207,29 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   const divided = divX > 1 || divY > 1;
   const zDiv = cavityTop - DIVIDER_DROP;
   const flared = lip && divided;
+  const compRadius = Math.max(0.5, Math.min(BIN_RADIUS - wall, cw / 2 - 0.01, cd / 2 - 0.01));
+  const labelTop = flared ? zDiv - divider / 2 - 0.2 : lip ? cavityTop : cavityTop - LABEL_DROP;
+
+  // Honeycomb openings in the outer walls, cut while the body is still solid.
+  // They stay clear of the floor, scoop, label shelf, rim and dividers.
+  let honeycombCount = 0;
+  if (p.honeycomb === true) {
+    const web = HONEYCOMB_WEB;
+    const { tool, count } = honeycombTool({
+      width: w,
+      depth: d,
+      wall,
+      z0: floorZ + web + scoop,
+      z1: Math.min(lip ? zDiv : top, labelDepth > 0 ? labelTop - labelDepth : Infinity) - web - 0.5,
+      cell: p.honeycombSize as number,
+      cornerMargin: Math.max(BIN_RADIUS, wall + compRadius) + web,
+      dividersX: Array.from({ length: divX - 1 }, (_, i) => -innerW / 2 + (i + 1) * cw + (i + 0.5) * divider),
+      dividersY: Array.from({ length: divY - 1 }, (_, i) => -innerD / 2 + (i + 1) * cd + (i + 0.5) * divider),
+      dividerMargin: divider / 2 + compRadius + web,
+    });
+    if (tool) shape = shape.cut(tool);
+    honeycombCount = count;
+  }
 
   // The lip goes first and its ridge is rounded while the shape is still
   // simple; that is several times faster than doing it after the compartments.
@@ -213,7 +237,6 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     shape = shape.cut(lipTool(w, d, wall, top, flared ? DIVIDER_DROP : 0));
     shape = roundEdgesAt(shape, top, LIP_ROUND);
   }
-  const compRadius = Math.max(0.5, Math.min(BIN_RADIUS - wall, cw / 2 - 0.01, cd / 2 - 0.01));
   const opts = {
     width: cw,
     depth: cd,
@@ -223,7 +246,7 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     scoop,
     label: labelDepth,
     // Without a lip the shelf stays below the rim, so the rim can be rounded.
-    labelTop: flared ? zDiv - divider / 2 - 0.2 : lip ? cavityTop : cavityTop - LABEL_DROP,
+    labelTop,
   };
   const tools = new Map<string, Shape3D>();
   const comps: Shape3D[] = [];
@@ -279,6 +302,10 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     { key: "fact.size", vars: { x: r2(w), y: r2(d), z: r2(top) } },
     { key: "fact.compartment", vars: { n: divX * divY, x: r2(cw), y: r2(cd), z: r2(cavityTop - floorZ) } },
   ];
+  if (p.honeycomb === true) {
+    if (honeycombCount) facts.push({ key: "fact.honeycomb", vars: { n: honeycombCount } });
+    else warnings.push({ key: "warn.honeycombNone" });
+  }
   return {
     pieces: [{ name: `bin_${gx}x${gy}x${heightLabel}`, shape, origin: [0, 0, 0], size: [w, d, top], grid: [0, 0] }],
     info: { size: [w, d, top], facts, warnings },

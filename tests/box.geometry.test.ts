@@ -99,6 +99,20 @@ describe("buildBox", () => {
     expect(areaBelow(box, 44.49)).toBeLessThan(areaBelow(box, 43) - 2 * 1.2 * 76 * 0.8);
   }, 120_000);
 
+  it("cuts honeycomb openings through the outer walls", () => {
+    for (const over of [{}, { divX: 3, lid: "lift", stackable: true }]) {
+      const plain = buildBox(params(over));
+      const comb = buildBox(params({ ...over, honeycomb: true }));
+      const n = comb.info.facts.find((f) => f.key === "fact.honeycomb")!.vars!.n as number;
+      expect(n).toBeGreaterThan(10);
+      const hole = (Math.sqrt(3) / 2) * 8 * 8 * 1.6;
+      const removed = measureVolume(plain.pieces[0].shape) - measureVolume(comb.pieces[0].shape);
+      expect(removed).toBeGreaterThan(n * hole * 0.95);
+      expect(removed).toBeLessThan(n * hole * 1.4);
+      expectWatertight(comb.pieces[0].shape);
+    }
+  }, 120_000);
+
   it("rejects boxes that are too low", () => {
     expect(() => buildBox(params({ height: 5, floor: 4 }))).toThrow(ParamError);
   });
