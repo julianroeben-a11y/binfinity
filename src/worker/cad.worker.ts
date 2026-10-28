@@ -8,6 +8,7 @@ import { setOC } from "replicad";
 import { buildBaseplate } from "../models/baseplate/build";
 import { buildBin } from "../models/bin/build";
 import { buildBox } from "../models/box/build";
+import { buildInsert } from "../models/insert/build";
 import type { BuildFn, BuiltPiece } from "../models/build-types";
 import { ParamError } from "../models/types";
 import { translateMesh, weld, type Mesh } from "../export/mesh";
@@ -23,6 +24,7 @@ const models: Record<string, BuildFn> = {
   baseplate: buildBaseplate,
   bin: buildBin,
   box: buildBox,
+  insert: buildInsert,
 };
 
 /** Gap between split pieces in the assembled preview. */

@@ -4,6 +4,7 @@ import { getLang, languages, setLang, t, tm } from "./i18n";
 import { baseplateSchema } from "./models/baseplate/schema";
 import { binSchema } from "./models/bin/schema";
 import { boxSchema } from "./models/box/schema";
+import { insertSchema } from "./models/insert/schema";
 import { sanitize, type Message, type ModelSchema, type Params } from "./models/types";
 import { renderForm } from "./ui/form";
 import { initUpdater } from "./ui/update";
@@ -11,9 +12,9 @@ import { Viewer } from "./ui/viewer";
 import { CadClient } from "./worker/client";
 import type { ExportFile, ExportFormat } from "./worker/protocol";
 
-const schemas: Record<string, ModelSchema> = { baseplate: baseplateSchema, bin: binSchema, box: boxSchema };
+const schemas: Record<string, ModelSchema> = { baseplate: baseplateSchema, bin: binSchema, box: boxSchema, insert: insertSchema };
 /** Models shown in the switcher but not built yet. */
-const upcoming = ["insert"];
+const upcoming: string[] = [];
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 

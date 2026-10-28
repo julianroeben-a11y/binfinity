@@ -1,7 +1,8 @@
 // Honeycomb cut-outs for the outer walls of rectangular bins and boxes. They
 // save filament and look nice; the hexagons stand on a corner, so their top
 // edges are 60° overhangs that print without support.
-import { makeCompound, makePolygon, makeSolid, type Point, type Shape3D } from "replicad";
+import { makeCompound, type Point, type Shape3D } from "replicad";
+import { planarLoft } from "./solids";
 
 /** Solid web between neighbouring openings, in mm. */
 export const HONEYCOMB_WEB = 2;
@@ -14,24 +15,6 @@ function hexRing(r: number, y: number): Point[] {
     const a = Math.PI / 2 + (k * Math.PI) / 3;
     return [r * Math.cos(a), y, r * Math.sin(a)] as Point;
   });
-}
-
-/**
- * Solid through rings of corners, built from flat faces. A ruled loft gives
- * curved (B-spline) faces even where they are flat, which makes the cut
- * several times slower.
- */
-function planarLoft(rings: Point[][]): Shape3D {
-  const faces = [makePolygon([...rings[0]].reverse()), makePolygon(rings[rings.length - 1])];
-  for (let i = 0; i < rings.length - 1; i++) {
-    const a = rings[i];
-    const b = rings[i + 1];
-    for (let k = 0; k < a.length; k++) {
-      const k1 = (k + 1) % a.length;
-      faces.push(makePolygon([a[k], a[k1], b[k1], b[k]]));
-    }
-  }
-  return makeSolid(faces) as unknown as Shape3D;
 }
 
 export interface HoneycombOptions {
