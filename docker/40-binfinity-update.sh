@@ -14,6 +14,7 @@ limit_except POST { deny all; }
 # Docker's embedded DNS; resolving at request time lets nginx start even
 # when the helper container is not up yet.
 resolver 127.0.0.11 valid=30s ipv6=off;
+resolver_timeout 3s;
 set \$binfinity_updater "$UPDATE_URL";
 proxy_set_header Authorization "Bearer $UPDATE_TOKEN";
 proxy_connect_timeout 5s;
