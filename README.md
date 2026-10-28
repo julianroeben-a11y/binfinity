@@ -16,7 +16,7 @@ The app has three areas: **Drawer** (plan a whole drawer), **Gridfinity** (basep
 
 **Desk organizer**
 - A block whose top slopes up towards the back, with 1 to 8 upright module pockets (up to 4 × 2). Pens and open pockets go as deep as the block allows (70 mm by default), small items only as deep as they need.
-- Each module takes a separately printed, swappable inlay with a sloped top flush with the block: pen holes (wide enough for ballpoints), an open pocket (scissors), card slots, USB sticks, 2 × 2 USB sticks plus a row of SD cards, bits or large holes; or it stays an empty pocket.
+- Each module takes a separately printed, swappable inlay with a sloped top flush with the block: pen holes (wide enough for ballpoints), an open pocket (scissors), a flat 20 mm pocket, card slots, USB sticks, 2 × 2 USB sticks plus a row of SD cards, bits or large holes; or it stays an empty pocket.
 - Patterns on the sides: upright ribs, level grooves, honeycomb, diamonds or smooth.
 - Hollow under the small modules to save filament. Hollows, patterns and pockets all print without supports (downward faces are at least 45° steep).
 - Size, slope, depth, rim and inlay play are adjustable; the assembled view shows the inlays in place.

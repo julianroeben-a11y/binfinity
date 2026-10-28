@@ -4,7 +4,7 @@ import type { Field, ModelSchema, Params } from "../types";
 /** Most module slots in the top. */
 export const MAX_MODULES = 8;
 /** What a module slot holds: an inlay printed separately, or nothing (an open pocket). */
-export const moduleKinds = ["pens", "pocket", "cards", "usb", "usbsd", "bits", "holes", "empty"];
+export const moduleKinds = ["pens", "pocket", "tray", "cards", "usb", "usbsd", "bits", "holes", "empty"];
 /** Kinds that go as deep as the organizer allows; the others only as deep as their items need. */
 export const deepKinds = ["pens", "pocket", "holes", "empty"];
 /** Patterns on the outside walls. */
