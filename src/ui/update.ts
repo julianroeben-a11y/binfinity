@@ -43,26 +43,35 @@ export async function initUpdater(versionEl: HTMLElement, button: HTMLButtonElem
   button.classList.toggle("primary", outdated);
   if (outdated) versionEl.title = t("update.newer", { version: latest });
 
+  const fail = (key: string) => {
+    button.disabled = false;
+    button.textContent = t(key);
+  };
+
   button.addEventListener("click", async () => {
     button.disabled = true;
     button.textContent = t("update.running");
+    // The helper answers once it is done. If the app container was replaced,
+    // the request dies on the way (expected); if it answers, the container
+    // was not replaced, so there was nothing newer to pull.
+    let answered = false;
     try {
-      // The request often dies mid-way because the container restarts; that is expected.
-      await fetch("./api/update", { method: "POST" });
+      const res = await fetch("./api/update", { method: "POST" });
+      if (res.status === 404) return fail("update.noHelper");
+      if (res.status === 401 || res.status === 403) return fail("update.badToken");
+      if (res.status >= 500) return fail("update.unreachable");
+      answered = res.ok;
     } catch {
-      // ignore
+      // container restarted
     }
     const started = Date.now();
     const poll = async () => {
       const now = await readConfig();
       if (now && now.version !== config.version) return location.reload();
-      if (Date.now() - started > 180_000) {
-        button.disabled = false;
-        button.textContent = t(outdated ? "update.failed" : "update.current");
-        return;
-      }
+      if (answered && now) return fail(outdated ? "update.noImage" : "update.current");
+      if (Date.now() - started > 180_000) return fail("update.failed");
       setTimeout(poll, 3000);
     };
-    setTimeout(poll, 3000);
+    setTimeout(poll, answered ? 0 : 3000);
   });
 }
