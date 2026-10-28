@@ -16,6 +16,7 @@ limit_except POST { deny all; }
 resolver 127.0.0.11 valid=30s ipv6=off;
 set \$binfinity_updater "$UPDATE_URL";
 proxy_set_header Authorization "Bearer $UPDATE_TOKEN";
+proxy_connect_timeout 5s;
 proxy_read_timeout 300s;
 proxy_pass \$binfinity_updater;
 CONF
