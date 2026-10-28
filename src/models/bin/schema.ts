@@ -10,13 +10,14 @@ export const binSchema: ModelSchema = {
   groups: [
     {
       title: "group.size",
+      open: true,
       fields: [
         { key: "gridX", label: "bin.gridX", type: "number", default: 2, min: 1, max: 10, step: 1 },
         { key: "gridY", label: "bin.gridY", type: "number", default: 1, min: 1, max: 10, step: 1 },
-        { key: "heightMode", label: "bin.heightMode", type: "select", default: "units", options: ["units", "mm"] },
+        { key: "heightMode", label: "bin.heightMode", type: "select", default: "units", options: ["units", "mm"], advanced: true },
         { key: "heightUnits", label: "bin.heightUnits", type: "number", default: 3, min: 2, max: 30, step: 1, visible: isUnits },
-        { key: "heightMm", label: "bin.heightMm", type: "number", default: 21, min: 12, max: 300, step: 0.5, unit: "mm", visible: isMm },
-        { key: "lip", label: "bin.lip", type: "bool", default: true },
+        { key: "heightMm", label: "bin.heightMm", type: "number", default: 21, min: 12, max: 300, step: 0.5, unit: "mm", visible: isMm, advanced: true },
+        { key: "lip", label: "bin.lip", type: "bool", default: true, advanced: true },
       ],
     },
     {

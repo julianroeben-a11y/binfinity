@@ -1,8 +1,25 @@
 import { has, t } from "../i18n";
 import type { Field, ModelSchema, Params, SelectField } from "../models/types";
 
+/** Groups the user opened or closed, by schema and group, kept across re-renders. */
+const openState = new Map<string, boolean>();
+
+/** Collapsible section; starts open when `open` or when remembered so. */
+function section(id: string, title: string, open: boolean, className: string) {
+  const box = document.createElement("details");
+  box.className = className;
+  box.open = openState.get(id) ?? open;
+  const summary = document.createElement("summary");
+  summary.textContent = title;
+  box.append(summary);
+  box.addEventListener("toggle", () => openState.set(id, box.open));
+  return box;
+}
+
 /**
- * Renders a schema as a form. Calls `onChange` with the full parameter set on
+ * Renders a schema as a form. Only the main fields are shown at first; the
+ * other groups and the advanced fields are collapsed unless they hold a value
+ * the user changed. Calls `onChange` with the full parameter set on
  * every edit; visibility rules are re-evaluated after each change.
  */
 export function renderForm(host: HTMLElement, schema: ModelSchema, values: Params, onChange: (p: Params) => void) {
@@ -20,21 +37,32 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
       selects.get(f.key)!.value = "custom";
     }
   };
-  const sets: { fs: HTMLElement; fields: Field[] }[] = [];
+  const sets: { box: HTMLElement; fields: Field[] }[] = [];
 
   const shown = (f: Field) => (f.visible ? f.visible(values) : true);
+  // Value a field has unless the user changed it: the default, or what the
+  // picked preset put there.
+  const expected = (f: Field) => {
+    for (const s of presetFields) {
+      const preset = s.presets![String(values[s.key])];
+      if (preset && f.key in preset) return preset[f.key];
+    }
+    return f.default;
+  };
+  const changed = (fields: Field[]) => fields.some((f) => shown(f) && values[f.key] !== expected(f));
   const updateVisibility = () => {
     for (const { field, row } of rows) row.hidden = !shown(field);
     // Hide a whole group when none of its fields apply (e.g. compartments of a round box).
-    for (const { fs, fields } of sets) fs.hidden = !fields.some(shown);
+    for (const { box, fields } of sets) box.hidden = !fields.some(shown);
   };
 
   for (const group of schema.groups) {
-    const fs = document.createElement("fieldset");
-    const legend = document.createElement("legend");
-    legend.textContent = t(group.title);
-    fs.append(legend);
-    sets.push({ fs, fields: group.fields });
+    const id = `${schema.id}:${group.title}`;
+    const box = section(id, t(group.title), group.open === true || changed(group.fields), "group");
+    sets.push({ box, fields: group.fields });
+    const extra = group.fields.filter((f) => f.advanced);
+    const more = extra.length ? section(`${id}:more`, t("form.more"), changed(extra), "more") : null;
+    if (more) sets.push({ box: more, fields: extra });
 
     for (const field of group.fields) {
       const row = document.createElement("label");
@@ -135,10 +163,11 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
       }
       if (field.type === "bool") row.append(control, name);
       else row.append(name, control);
-      fs.append(row);
+      (field.advanced ? more! : box).append(row);
       rows.push({ field, row });
     }
-    host.append(fs);
+    if (more) box.append(more);
+    host.append(box);
   }
   updateVisibility();
 }

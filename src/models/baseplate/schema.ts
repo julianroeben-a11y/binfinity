@@ -11,15 +11,16 @@ export const baseplateSchema: ModelSchema = {
   groups: [
     {
       title: "group.size",
+      open: true,
       fields: [
         { key: "sizeMode", label: "bp.sizeMode", type: "select", default: "grid", options: ["grid", "drawer"] },
         { key: "gridX", label: "bp.gridX", type: "number", default: 4, min: 1, max: 40, step: 1, visible: isGrid },
         { key: "gridY", label: "bp.gridY", type: "number", default: 3, min: 1, max: 40, step: 1, visible: isGrid },
         { key: "drawerX", label: "bp.drawerX", type: "number", default: 300, min: 42, max: 2000, step: 0.5, unit: "mm", visible: isDrawer },
         { key: "drawerY", label: "bp.drawerY", type: "number", default: 400, min: 42, max: 2000, step: 0.5, unit: "mm", visible: isDrawer },
-        { key: "clearance", label: "bp.clearance", type: "number", default: 0.5, min: 0, max: 10, step: 0.1, unit: "mm", visible: isDrawer },
-        { key: "alignX", label: "bp.alignX", type: "select", default: "center", options: ["center", "start", "end"], visible: isDrawer },
-        { key: "alignY", label: "bp.alignY", type: "select", default: "center", options: ["center", "start", "end"], visible: isDrawer },
+        { key: "clearance", label: "bp.clearance", type: "number", default: 0.5, min: 0, max: 10, step: 0.1, unit: "mm", visible: isDrawer, advanced: true },
+        { key: "alignX", label: "bp.alignX", type: "select", default: "center", options: ["center", "start", "end"], visible: isDrawer, advanced: true },
+        { key: "alignY", label: "bp.alignY", type: "select", default: "center", options: ["center", "start", "end"], visible: isDrawer, advanced: true },
       ],
     },
     {

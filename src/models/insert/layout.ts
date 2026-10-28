@@ -62,6 +62,73 @@ export function parseSizes(text: string, min: number, max: number, limit = 100):
   return [...out].filter((v) => v >= min && v <= max).sort((a, b) => a - b).slice(0, limit);
 }
 
+export interface ShelfItem {
+  /** Room the item takes along X and Y. */
+  w: number;
+  d: number;
+  /** Free space it wants towards its neighbours (the larger of two wins). */
+  gap: number;
+}
+
+export interface ShelfLayout {
+  /** Centre of every item that fits, with its index in the input. */
+  placed: { x: number; y: number; index: number }[];
+  /** Indices of the items that did not fit any more. */
+  missing: number[];
+}
+
+/**
+ * Items of different sizes in rows, in the given order, filled left to right.
+ * Each row is as deep as its deepest item; rows and the items in a row are
+ * centred.
+ */
+export function layoutShelves(areaX: number, areaY: number, items: ShelfItem[]): ShelfLayout {
+  const rows: number[][] = [];
+  let row: number[] = [];
+  let used = 0;
+  const depth = (r: number[]) => Math.max(...r.map((i) => items[i].d));
+  const rowGap = (r: number[]) => Math.max(...r.map((i) => items[i].gap));
+  const between = (a: number[], b: number[]) => Math.max(rowGap(a), rowGap(b));
+  // Depth of the rows so far plus `extra` as the next one.
+  const total = (extra: number[] | null) => {
+    const all = extra ? [...rows, extra] : rows;
+    return all.reduce((sum, r, k) => sum + depth(r) + (k ? between(all[k - 1], r) : 0), 0);
+  };
+  let k = 0;
+  for (; k < items.length; k++) {
+    const it = items[k];
+    if (it.w > areaX + 1e-9) break;
+    const last = row[row.length - 1];
+    const g = row.length ? Math.max(it.gap, items[last].gap) : 0;
+    if (row.length && used + g + it.w > areaX + 1e-9) {
+      rows.push(row);
+      row = [];
+      used = 0;
+    }
+    if (total([...row, k]) > areaY + 1e-9) break;
+    used += (row.length ? Math.max(it.gap, items[row[row.length - 1]].gap) : 0) + it.w;
+    row.push(k);
+  }
+  if (row.length) rows.push(row);
+
+  const placed: ShelfLayout["placed"] = [];
+  let y = -total(null) / 2;
+  rows.forEach((r, ri) => {
+    if (ri) y += between(rows[ri - 1], r);
+    const gaps = r.slice(1).map((i, n) => Math.max(items[i].gap, items[r[n]].gap));
+    const rowW = r.reduce((sum, i) => sum + items[i].w, 0) + gaps.reduce((a, b) => a + b, 0);
+    let x = -rowW / 2;
+    const yc = y + depth(r) / 2;
+    r.forEach((i, n) => {
+      if (n) x += gaps[n - 1];
+      placed.push({ x: x + items[i].w / 2, y: yc, index: i });
+      x += items[i].w;
+    });
+    y += depth(r);
+  });
+  return { placed, missing: items.map((_, i) => i).slice(k) };
+}
+
 export interface SizedLayout {
   /** Centre and size of every item that fits. */
   items: { x: number; y: number; size: number }[];
@@ -69,44 +136,8 @@ export interface SizedLayout {
   missing: number[];
 }
 
-/**
- * Round items of different sizes in rows, small to large, filled left to
- * right. Each row is as deep as its largest item and is centred, as are the
- * rows themselves.
- */
+/** Round items of different sizes, small to large, all keeping the same gap. */
 export function layoutSizes(areaX: number, areaY: number, sizes: number[], gap: number): SizedLayout {
-  const rows: number[][] = [];
-  let row: number[] = [];
-  let used = 0;
-  const depth = (r: number[]) => Math.max(...r);
-  const total = () => rows.reduce((sum, r) => sum + depth(r), 0) + rows.length * gap;
-  let i = 0;
-  for (; i < sizes.length; i++) {
-    const s = sizes[i];
-    if (s > areaX) break;
-    if (row.length && used + gap + s > areaX + 1e-9) {
-      rows.push(row);
-      row = [];
-      used = 0;
-    }
-    // Would this item make the rows deeper than the area?
-    const rowDepth = row.length ? Math.max(depth(row), s) : s;
-    if (total() + rowDepth > areaY + 1e-9) break;
-    used += (row.length ? gap : 0) + s;
-    row.push(s);
-  }
-  if (row.length) rows.push(row);
-  const items: SizedLayout["items"] = [];
-  let y = -(total() - gap) / 2;
-  for (const r of rows) {
-    const rowW = r.reduce((sum, s) => sum + s, 0) + (r.length - 1) * gap;
-    let x = -rowW / 2;
-    const yc = y + depth(r) / 2;
-    for (const s of r) {
-      items.push({ x: x + s / 2, y: yc, size: s });
-      x += s + gap;
-    }
-    y += depth(r) + gap;
-  }
-  return { items, missing: sizes.slice(i) };
+  const { placed, missing } = layoutShelves(areaX, areaY, sizes.map((s) => ({ w: s, d: s, gap })));
+  return { items: placed.map((p) => ({ x: p.x, y: p.y, size: sizes[p.index] })), missing: missing.map((i) => sizes[i]) };
 }

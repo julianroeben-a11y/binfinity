@@ -11,6 +11,8 @@ interface FieldBase {
   label: string;
   /** Only show (and use) this field when the predicate returns true. */
   visible?: (p: Params) => boolean;
+  /** Tucked away under "more settings" inside its group. */
+  advanced?: boolean;
 }
 
 export interface NumberField extends FieldBase {
@@ -50,6 +52,8 @@ export type Field = NumberField | BoolField | SelectField | TextField;
 
 export interface FieldGroup {
   title: string;
+  /** Shown expanded at first; other groups start collapsed. */
+  open?: boolean;
   fields: Field[];
 }
 
