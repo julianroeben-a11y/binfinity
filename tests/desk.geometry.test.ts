@@ -80,6 +80,16 @@ describe("buildDesk", () => {
     expect(watertight(patterned)).toBe(true);
   }, 120_000);
 
+  it("builds a flat open pocket 20 mm deep", () => {
+    const { pieces } = buildDesk(params({ cols: 1, rows: 1, module1: "tray", surface: "smooth" }));
+    const [[, , z0], [, , z1]] = pieces[1].shape.boundingBox.bounds;
+    expect(pieces[1].name).toBe("desk_inlay_1_tray");
+    expect(z0).toBeCloseTo(0, 2);
+    // 20 mm at the front, rising with the top towards the back.
+    expect(z1).toBeGreaterThan(20);
+    expect(z1).toBeLessThan(20 + 110 * slope);
+  }, 60_000);
+
   it("rejects modules that get too small", () => {
     expect(() => buildDesk(params({ width: 60, cols: 4 }))).toThrow(ParamError);
   });

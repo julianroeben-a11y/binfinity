@@ -34,6 +34,8 @@ const INLAY_WALL = 1.6;
 const INLAY_ROUND = 0.6;
 /** Pockets for small items are at least this deep, so their inlays sit firmly. */
 const SHALLOW_MIN = 20;
+/** The flat open pocket. */
+const TRAY_DEPTH = 20;
 /** Material between a shallow pocket and the hollow under it. */
 const HOLLOW_ROOF = 2.4;
 /** Hollows lower than this are left solid. */
@@ -53,6 +55,7 @@ const inlayItems: Record<string, { preset: Params; depth: number | null }> = {
 /** Pocket depth the kind wants (deep kinds: the depth field). */
 function wantedDepth(kind: string, deep: number): number {
   if (deepKinds.includes(kind)) return deep;
+  if (kind === "tray") return TRAY_DEPTH;
   return Math.max(SHALLOW_MIN, (inlayItems[kind]?.depth ?? 0) + INLAY_FLOOR + 2);
 }
 
@@ -64,7 +67,7 @@ function wantedDepth(kind: string, deep: number): number {
 function buildInlay(kind: string, w: number, l: number, h: number, slope: number, p: Params): Shape3D | null {
   const bed = { bedX: p.bedX, bedY: p.bedY };
   let shape: Shape3D;
-  if (kind === "pocket") {
+  if (kind === "pocket" || kind === "tray") {
     // An open box, cut along the slope.
     const height = h + l * slope + 2;
     const box = sanitize(boxSchema, { ...defaults(boxSchema), shape: "rect", sizeMode: "outer", width: w, depth: l, height, wall: INLAY_WALL, floor: INLAY_FLOOR, cornerRadius: POCKET_RADIUS, ...bed });
