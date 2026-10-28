@@ -126,7 +126,7 @@ describe("buildInsert USB + SD", () => {
   it("puts four USB sticks and a row of SD cards side by side when there is room", () => {
     const { pieces, info } = buildInsert(params({ ...preset("usbsd"), form: "loose", width: 92, length: 47 }));
     const fact = info.facts.find((f) => f.key === "fact.insertCombo")!;
-    expect(fact.vars).toEqual({ usb: 4, sd: 3 });
+    expect(fact.vars).toEqual({ usb: 4, sd: 4 });
     expect(info.warnings).toEqual([]);
     expect(watertight(pieces[0].shape)).toBe(true);
   }, 60_000);

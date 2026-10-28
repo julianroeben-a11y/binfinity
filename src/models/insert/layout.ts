@@ -70,9 +70,6 @@ export interface ShelfItem {
   gap: number;
   /** Free space towards the rows before and after, if not `gap`. */
   rowGap?: number;
-  /** Kind of item; next to an item of another kind the larger `kindGap` applies. */
-  kind?: string;
-  kindGap?: number;
 }
 
 export interface ShelfLayout {
@@ -93,11 +90,7 @@ export function layoutShelves(areaX: number, areaY: number, items: ShelfItem[]):
   let used = 0;
   const depth = (r: number[]) => Math.max(...r.map((i) => items[i].d));
   const rowGap = (r: number[]) => Math.max(...r.map((i) => items[i].rowGap ?? items[i].gap));
-  const kindGap = (a: number[], b: number[]) =>
-    a.some((i) => b.some((j) => items[i].kind !== items[j].kind)) ? Math.max(...[...a, ...b].map((i) => items[i].kindGap ?? 0)) : 0;
-  const between = (a: number[], b: number[]) => Math.max(rowGap(a), rowGap(b), kindGap(a, b));
-  // Gap between neighbours in a row.
-  const side = (a: number, b: number) => Math.max(items[a].gap, items[b].gap, kindGap([a], [b]));
+  const between = (a: number[], b: number[]) => Math.max(rowGap(a), rowGap(b));
   // Depth of the rows so far plus `extra` as the next one.
   const total = (extra: number[] | null) => {
     const all = extra ? [...rows, extra] : rows;
@@ -108,14 +101,14 @@ export function layoutShelves(areaX: number, areaY: number, items: ShelfItem[]):
     const it = items[k];
     if (it.w > areaX + 1e-9) break;
     const last = row[row.length - 1];
-    const g = row.length ? side(last, k) : 0;
+    const g = row.length ? Math.max(it.gap, items[last].gap) : 0;
     if (row.length && used + g + it.w > areaX + 1e-9) {
       rows.push(row);
       row = [];
       used = 0;
     }
     if (total([...row, k]) > areaY + 1e-9) break;
-    used += g + it.w;
+    used += (row.length ? Math.max(it.gap, items[row[row.length - 1]].gap) : 0) + it.w;
     row.push(k);
   }
   if (row.length) rows.push(row);
@@ -124,7 +117,7 @@ export function layoutShelves(areaX: number, areaY: number, items: ShelfItem[]):
   let y = -total(null) / 2;
   rows.forEach((r, ri) => {
     if (ri) y += between(rows[ri - 1], r);
-    const gaps = r.slice(1).map((i, n) => side(r[n], i));
+    const gaps = r.slice(1).map((i, n) => Math.max(items[i].gap, items[r[n]].gap));
     const rowW = r.reduce((sum, i) => sum + items[i].w, 0) + gaps.reduce((a, b) => a + b, 0);
     let x = -rowW / 2;
     const yc = y + depth(r) / 2;

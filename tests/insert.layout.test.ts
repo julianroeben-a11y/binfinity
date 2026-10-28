@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutItems, layoutShelves, layoutSizes, parseSizes } from "../src/models/insert/layout";
+import { layoutItems, layoutSizes, parseSizes } from "../src/models/insert/layout";
 
 const dist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
@@ -58,15 +58,5 @@ describe("layoutSizes", () => {
         expect(dist([a.x, a.y], [b.x, b.y])).toBeGreaterThanOrEqual((a.size + b.size) / 2 + 4 - 1e-6);
       }
     }
-  });
-});
-
-describe("layoutShelves", () => {
-  it("keeps more room between items of different kinds", () => {
-    const item = (kind: string) => ({ w: 3, d: 20, gap: 6, kind, kindGap: 14 });
-    const { placed } = layoutShelves(100, 30, [item("sd"), item("sd"), item("usb")]);
-    const [a, b, c] = placed.sort((p, q) => p.index - q.index);
-    expect(b.x - a.x).toBeCloseTo(3 + 6);
-    expect(c.x - b.x).toBeCloseTo(3 + 14);
   });
 });
