@@ -11,7 +11,7 @@ export const baseplateSchema: ModelSchema = {
   groups: [
     {
       title: "group.size",
-      open: true,
+      tab: "main",
       fields: [
         { key: "sizeMode", label: "bp.sizeMode", type: "select", default: "grid", options: ["grid", "drawer"] },
         { key: "gridX", label: "bp.gridX", type: "number", default: 4, min: 1, max: 40, step: 1, visible: isGrid },

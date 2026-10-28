@@ -11,6 +11,8 @@ import { buildBaseplate } from "../models/baseplate/build";
 import { buildBin } from "../models/bin/build";
 import { buildBox } from "../models/box/build";
 import { buildInsert } from "../models/insert/build";
+import { buildDrawer } from "../models/drawer/build";
+import { cachedBuild } from "../models/cache";
 import type { BuildFn, BuiltPiece } from "../models/build-types";
 import { splitAccent } from "../models/accent";
 import { initFont } from "../models/text";
@@ -30,6 +32,7 @@ const models: Record<string, BuildFn> = {
   bin: buildBin,
   box: buildBox,
   insert: buildInsert,
+  drawer: buildDrawer,
 };
 
 /** Gap between split pieces in the assembled preview. */
@@ -104,7 +107,8 @@ async function handle(req: Request) {
     if (!build) throw new ParamError({ key: "err.unknownModel" });
     const t0 = performance.now();
     post({ type: "progress", id: req.id, stage: "building" });
-    const { pieces, info } = build(req.params);
+    // A drawer caches its parts itself.
+    const { pieces, info } = req.model === "drawer" ? build(req.params) : cachedBuild(req.model, build, req.params);
     freeCurrent();
     const plates = plateLayout(pieces, req.params);
     if (plates.oversized && !info.warnings.some((w) => w.key === "warn.largerThanBed")) {
@@ -133,7 +137,8 @@ async function handle(req: Request) {
     if (totalChanges) info.facts.push({ key: "fact.colourChanges", vars: { n: totalChanges } });
     current = { model: req.model, pieces: split, plateOffsets: plates.offsets };
     post({ type: "progress", id: req.id, stage: "meshing" });
-    const offsets = explodedOffsets(split);
+    // A drawer is shown as it goes together, without gaps between the plate pieces.
+    const offsets = req.model === "drawer" ? split.map((): [number, number, number] => [0, 0, 0]) : explodedOffsets(split);
     const preview: PreviewPiece[] = split.map((p, i) => ({
       name: p.name,
       assembled: offsets[i],

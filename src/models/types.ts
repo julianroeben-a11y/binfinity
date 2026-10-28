@@ -61,10 +61,16 @@ export interface ActionField extends FieldBase {
 export type ValueField = NumberField | BoolField | SelectField | TextField;
 export type Field = ValueField | ActionField;
 
+export type FormTab = "main" | "details" | "print";
+export const formTabs: FormTab[] = ["main", "details", "print"];
+
 export interface FieldGroup {
   title: string;
-  /** Shown expanded at first; other groups start collapsed. */
-  open?: boolean;
+  /**
+   * Form tab the group sits in: the main settings, the details, or print
+   * settings. Defaults to `details`.
+   */
+  tab?: FormTab;
   fields: Field[];
 }
 

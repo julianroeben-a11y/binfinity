@@ -2,9 +2,17 @@
 
 **Parametric generator for 3D-printable storage.** Gridfinity baseplates and bins, custom boxes and inserts that hold tools, batteries and memory cards. Everything is computed in your browser with a real CAD kernel ([OpenCascade](https://dev.opencascade.org/) via [replicad](https://replicad.xyz)), and you download STL or 3MF files ready for your slicer.
 
-> 🇩🇪 Binfinity erzeugt Gridfinity-Baseplates und -Bins sowie eigene Boxen und Einsätze (Bits, Fräser, Bohrer, Batterien, USB-Sticks, SD-Karten) direkt im Browser und exportiert STL oder 3MF. Die Oberfläche gibt es auf Deutsch und Englisch. Self-Hosting per Docker, z. B. auf ZimaOS, siehe unten.
+> 🇩🇪 Binfinity plant ganze Schubladen und erzeugt Gridfinity-Baseplates und -Bins sowie eigene Boxen und Einsätze (Bits, Fräser, Bohrer, Batterien, USB-Sticks, SD-Karten) direkt im Browser und exportiert STL oder 3MF. Die Oberfläche gibt es auf Deutsch und Englisch. Self-Hosting per Docker, z. B. auf ZimaOS, siehe unten.
 
 ## Features
+
+The app has three areas: **Drawer** (plan a whole drawer), **Gridfinity** (baseplates, bins, inserts) and **Organizer** (boxes in any size).
+
+**Drawer planner**
+- Enter the inside size of a drawer; the baseplate is fitted and split for your print bed.
+- Add bins and inserts, drag them into place on the top view and edit each one; bins get the height that still fits the drawer.
+- 3D view of the filled drawer, warnings for parts that overlap or are taller than the drawer, and one export with every part.
+- Parts are cached while you work, so changing one part only rebuilds that one.
 
 **Baseplates**
 - Size by grid units or by **drawer size**: Binfinity fits as many cells as possible and fills the rest with a solid border (centered or aligned to a side).
@@ -36,7 +44,7 @@
 - As a Gridfinity bin (1 × 1 to 10 × 10, automatic height, stacking lip, magnets) or as a loose block for a box; the loose block can take its size from the box you set up.
 
 **General**
-- Compact form: the main settings first, everything else in collapsible sections. Settings are kept per model while you switch.
+- Compact form: models in a rail on the left, settings in three tabs (basics, details, print). Settings are kept per model while you switch.
 - **Colour accent**: the top millimetres (and engraved text) become a second part for filament 2, already assigned in the 3MF for Bambu Studio / Orca. Preview colours are adjustable.
 - Filament and print time estimate (PLA, 0.2 mm layers, 20 % infill) and the number of filament changes.
 - Live 3D preview on your print bed(s), or assembled; shareable links (all parameters live in the URL).

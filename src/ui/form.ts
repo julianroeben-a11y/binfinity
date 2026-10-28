@@ -1,13 +1,14 @@
 import { has, t } from "../i18n";
-import type { Field, ModelSchema, Params, SelectField } from "../models/types";
+import { formTabs, type Field, type FormTab, type ModelSchema, type Params, type SelectField } from "../models/types";
 
-/** Groups the user opened or closed, by schema and group, kept across re-renders. */
+/** Tab shown per schema, and "more settings" sections the user opened or closed, kept across re-renders. */
+const tabState = new Map<string, FormTab>();
 const openState = new Map<string, boolean>();
 
-/** Collapsible section; starts open when `open` or when remembered so. */
-function section(id: string, title: string, open: boolean, className: string) {
+/** Collapsible "more settings" section; starts open when `open` or when remembered so. */
+function section(id: string, title: string, open: boolean) {
   const box = document.createElement("details");
-  box.className = className;
+  box.className = "more";
   box.open = openState.get(id) ?? open;
   const summary = document.createElement("summary");
   summary.textContent = title;
@@ -17,10 +18,10 @@ function section(id: string, title: string, open: boolean, className: string) {
 }
 
 /**
- * Renders a schema as a form. Only the main fields are shown at first; the
- * other groups and the advanced fields are collapsed unless they hold a value
- * the user changed. Calls `onChange` with the full parameter set on
- * every edit; visibility rules are re-evaluated after each change.
+ * Renders a schema as a form in tabs: main settings, details and print.
+ * Advanced fields are collapsed unless they hold a value the user changed; a
+ * tab with changed values is marked. Calls `onChange` with the full parameter
+ * set on every edit; visibility rules are re-evaluated after each change.
  */
 export function renderForm(host: HTMLElement, schema: ModelSchema, values: Params, onChange: (p: Params) => void, models: Record<string, Params> = {}) {
   host.replaceChildren();
@@ -50,18 +51,58 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
     return f.type === "action" ? undefined : f.default;
   };
   const changed = (fields: Field[]) => fields.some((f) => f.type !== "action" && shown(f) && values[f.key] !== expected(f));
+  const tabOf = (g: { tab?: FormTab }) => g.tab ?? "details";
+  const tabsUsed = formTabs.filter((tab) => schema.groups.some((g) => tabOf(g) === tab));
+  let current = tabState.get(schema.id) ?? "main";
+  if (!tabsUsed.includes(current)) current = tabsUsed[0];
+  const tabBar = document.createElement("div");
+  tabBar.className = "tabs";
+  tabBar.setAttribute("role", "tablist");
+  const tabButtons = new Map<FormTab, HTMLButtonElement>();
+  const panes = new Map<FormTab, HTMLElement>();
+  for (const tab of tabsUsed) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("role", "tab");
+    b.id = `tab-${tab}`;
+    b.textContent = t(`form.tab.${tab}`);
+    b.addEventListener("click", () => {
+      current = tab;
+      tabState.set(schema.id, tab);
+      updateVisibility();
+    });
+    tabButtons.set(tab, b);
+    tabBar.append(b);
+    const pane = document.createElement("div");
+    pane.className = "tab-pane";
+    pane.setAttribute("role", "tabpanel");
+    pane.setAttribute("aria-labelledby", b.id);
+    panes.set(tab, pane);
+  }
+  host.append(tabBar, ...panes.values());
+
   const updateVisibility = () => {
     for (const { field, row } of rows) row.hidden = !shown(field);
     // Hide a whole group when none of its fields apply (e.g. compartments of a round box).
     for (const { box, fields } of sets) box.hidden = !fields.some(shown);
+    for (const tab of tabsUsed) {
+      const b = tabButtons.get(tab)!;
+      b.setAttribute("aria-selected", String(tab === current));
+      b.classList.toggle("changed", schema.groups.some((g) => tabOf(g) === tab && changed(g.fields)));
+      panes.get(tab)!.hidden = tab !== current;
+    }
   };
 
   for (const group of schema.groups) {
     const id = `${schema.id}:${group.title}`;
-    const box = section(id, t(group.title), group.open === true || changed(group.fields), "group");
+    const box = document.createElement("section");
+    box.className = "group";
+    const heading = document.createElement("h3");
+    heading.textContent = t(group.title);
+    box.append(heading);
     sets.push({ box, fields: group.fields });
     const extra = group.fields.filter((f) => f.advanced);
-    const more = extra.length ? section(`${id}:more`, t("form.more"), changed(extra), "more") : null;
+    const more = extra.length ? section(`${id}:more`, t("form.more"), changed(extra)) : null;
     if (more) sets.push({ box: more, fields: extra });
 
     for (const field of group.fields) {
@@ -92,7 +133,7 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
         continue;
       }
       const row = document.createElement("label");
-      row.className = `field field-${field.type}`;
+      row.className = `field field-${field.type}${field.type === "select" && field.presets ? " field-wide" : ""}`;
       const name = document.createElement("span");
       name.className = "field-label";
       name.textContent = t(field.label);
@@ -193,7 +234,7 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
       rows.push({ field, row });
     }
     if (more) box.append(more);
-    host.append(box);
+    panes.get(tabOf(group))!.append(box);
   }
   updateVisibility();
 }

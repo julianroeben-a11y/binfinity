@@ -10,7 +10,7 @@ export const boxSchema: ModelSchema = {
   groups: [
     {
       title: "group.size",
-      open: true,
+      tab: "main",
       fields: [
         { key: "shape", label: "box.shape", type: "select", default: "rect", options: ["rect", "round", "hex"] },
         { key: "sizeMode", label: "box.sizeMode", type: "select", default: "outer", options: ["outer", "inner"], advanced: true },
@@ -32,6 +32,7 @@ export const boxSchema: ModelSchema = {
     },
     {
       title: "group.compartments",
+      tab: "main",
       fields: [
         { key: "divX", label: "bin.divX", type: "number", default: 1, min: 1, max: 20, step: 1, visible: isRect },
         { key: "divY", label: "bin.divY", type: "number", default: 1, min: 1, max: 20, step: 1, visible: isRect },
