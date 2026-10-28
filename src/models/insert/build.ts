@@ -9,6 +9,7 @@ import { planarLoft } from "../solids";
 import { engrave, textWidth, type TextItem } from "../text";
 import type { BuiltPiece } from "../build-types";
 import { ParamError, type BuildInfo, type Params } from "../types";
+import { fitsBlocks, layoutBlocks, type BlockKind } from "./blocks";
 import { layoutItems, layoutShelves, parseSizes } from "./layout";
 import { itemPresets, mixItems } from "./schema";
 
@@ -68,7 +69,7 @@ function openingTool(kind: string, x: number, y: number, z0: number, top: number
   return planarLoft([ring(0, z0), ring(0, zc), ring(c + EPS, top + EPS), ...(over > 0 ? [ring(c + EPS, top + over)] : [])]);
 }
 
-interface Opening {
+export interface Opening {
   x: number;
   y: number;
   kind: string;
@@ -131,7 +132,7 @@ const entry = (gap: number) => Math.max(0, Math.min(ENTRY, (gap - WEB) / 2));
 /** Entry chamfer that keeps a web of material to every neighbour. */
 const specEntry = (s: ItemSpec) => Math.max(0, Math.min(ENTRY, (s.footX - s.ox + s.gapX - WEB) / 2, (s.footY - s.oy + s.gapY - WEB) / 2));
 
-interface Plan {
+export interface Plan {
   holes: Opening[];
   /** Labels on the top face (z is filled in later). */
   texts: Omit<TextItem, "z">[];
@@ -142,7 +143,7 @@ interface Plan {
 }
 
 /** Where the openings go inside an area of `ax` × `ay`, centred on the origin. */
-function planOpenings(p: Params, ax: number, ay: number): Plan {
+export function planOpenings(p: Params, ax: number, ay: number): Plan {
   const kind = p.opening as string;
   const clearance = p.clearance as number;
   const gap = p.gap as number;
@@ -178,33 +179,22 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
   }
 
   if (kind === "mix") {
-    // Several kinds of items. Slots stand with their thin side along X, so a
-    // row of them looks like a card file; kinds with deep rooms come first.
-    const kinds = mixItems
-      .map((k) => ({ spec: itemSpec(itemPresets[k], clearance), n: Math.round(p[`count_${k}`] as number) }))
-      .filter((k) => k.n > 0)
-      .map(({ spec, n }) => ({ n, spec: spec.kind === "slot" ? { ...spec, ox: spec.oy, oy: spec.ox, footX: spec.footY, footY: spec.footX, gapX: spec.gapY, gapY: spec.gapX } : spec }))
-      .sort((a, b) => b.spec.footY - a.spec.footY);
-    const specs = kinds.flatMap(({ spec, n }) => Array<ItemSpec>(n).fill(spec));
-    const { placed, missing } = layoutShelves(
-      ax,
-      ay,
-      specs.map((s) => ({ w: s.footX, d: s.footY, gap: s.gapX, rowGap: s.gapY, kind: `${s.kind}/${s.ox}/${s.oy}`, kindGap: KIND_GAP })),
-    );
-    const holes = placed.map(({ x, y, index }) => {
-      const s = specs[index];
-      return { x, y, kind: s.kind, x0: s.ox, y0: s.oy, depth: s.depth, chamfer: specEntry(s) };
-    });
+    // Several kinds of items, each in a block of its own.
+    const keys = mixItems.filter((k) => Math.round(p[`count_${k}`] as number) > 0);
+    const specs = keys.map((k) => itemSpec(itemPresets[k], clearance));
+    const counts = keys.map((k) => Math.round(p[`count_${k}`] as number));
+    const { holes, placed } = blockHoles(ax, ay, specs.map((s, i) => blockKind(s, counts[i])), specs);
+    const missing = counts.reduce((a, b) => a + b, 0) - placed;
     return {
       holes,
       texts: [],
       depth: Math.max(0, ...specs.map((s) => s.depth)),
-      warnings: missing.length ? [{ key: "warn.insertMixMissing", vars: { n: missing.length } }] : [],
-      facts: () => [{ key: "fact.insertMix", vars: { n: holes.length, kinds: kinds.length } }],
+      warnings: missing ? [{ key: "warn.insertMixMissing", vars: { n: missing } }] : [],
+      facts: () => [{ key: "fact.insertMix", vars: { n: holes.length, kinds: keys.length } }],
     };
   }
 
-  if (kind === "usbsd") return planCombo(ax, ay, clearance, p.topSlope !== undefined ? DESK_COMBO_GAP : KIND_GAP);
+  if (kind === "usbsd") return planCombo(ax, ay, clearance);
 
   const { ox, oy, footX, footY, gapX, gapY } = itemSpec(p, clearance);
 
@@ -239,52 +229,37 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
   };
 }
 
-/** Room between different kinds of items, so fingers fit between them. */
-const KIND_GAP = 14;
-/** The desk organizer's module is tighter; its inlay keeps the closer spacing. */
-const DESK_COMBO_GAP = 8;
+/** A kind of item as a block of the mixed layout. */
+function blockKind(s: ItemSpec, n: number, extra: Partial<BlockKind> = {}): BlockKind {
+  return { footX: s.footX, footY: s.footY, ox: s.ox, oy: s.oy, gapX: s.gapX, gapY: s.gapY, finger: Math.max(s.gapX, s.gapY), n, turnable: s.kind === "slot", ...extra };
+}
 
-/**
- * Four USB sticks in a 2 × 2 block and as many SD cards as fit in one row:
- * beside the block when there is room, else in front of it.
- */
-function planCombo(ax: number, ay: number, clearance: number, gap: number): Plan {
+/** Openings for a mixed layout; `specs` belong to the kinds by index. */
+function blockHoles(ax: number, ay: number, kinds: BlockKind[], specs: ItemSpec[]): { holes: Opening[]; counts: number[]; placed: number } {
+  const { placed, counts } = layoutBlocks(ax, ay, kinds);
+  const holes = placed.map(({ kind, x, y, turned }) => {
+    const s = specs[kind];
+    const t = turned ? { ...s, ox: s.oy, oy: s.ox, footX: s.footY, footY: s.footX, gapX: s.gapY, gapY: s.gapX } : s;
+    return { x, y, kind: s.kind, x0: t.ox, y0: t.oy, depth: s.depth, chamfer: specEntry(t) };
+  });
+  return { holes, counts, placed: placed.length };
+}
+
+/** Four USB sticks in a 2 × 2 block and as many SD cards as fit in one line beside or in front of them. */
+function planCombo(ax: number, ay: number, clearance: number): Plan {
   const usb = itemSpec(itemPresets.usba, clearance);
   const sd = itemSpec(itemPresets.sd, clearance);
-  // The cards stand like a card file, thin side along X.
-  const [sdX, sdY, sdFootX, sdFootY, sdPitch] = [sd.oy, sd.ox, sd.footY, sd.footX, sd.footY + sd.gapY];
-  const usbW = 2 * usb.footX + usb.gapX;
-  const usbD = 2 * usb.footY + usb.gapY;
-  const sdCount = (room: number) => Math.max(0, Math.floor((room - sdFootX) / sdPitch) + 1);
-  const beside = sdCount(ax - usbW - gap);
-  const side = beside >= 2 && Math.max(usbD, sdFootY) <= ay;
-  const n = side ? beside : usbD + gap + sdFootY <= ay ? sdCount(ax) : 0;
-  const sdW = n ? sdFootX + (n - 1) * sdPitch : 0;
-
-  const holes: Opening[] = [];
-  // Lower left corners of the USB block and the SD row.
-  const [ux, uy, sx, sy] = side
-    ? [-(usbW + gap + sdW) / 2, -usbD / 2, -(usbW + gap + sdW) / 2 + usbW + gap, -sdFootY / 2]
-    : [-usbW / 2, n ? -(usbD + gap + sdFootY) / 2 + sdFootY + gap : -usbD / 2, -sdW / 2, -(usbD + gap + sdFootY) / 2];
-  if (usbW <= ax && usbD <= ay) {
-    for (let i = 0; i < 2; i++) {
-      for (let j = 0; j < 2; j++) {
-        const x = ux + usb.footX / 2 + i * (usb.footX + usb.gapX);
-        const y = uy + usb.footY / 2 + j * (usb.footY + usb.gapY);
-        holes.push({ x, y, kind: "slot", x0: usb.ox, y0: usb.oy, depth: usb.depth, chamfer: specEntry(usb) });
-      }
-    }
-  }
-  const sdChamfer = specEntry({ ...sd, footX: sdFootX, footY: sdFootY, ox: sdX, oy: sdY, gapX: sd.gapY, gapY: sd.gapX });
-  for (let i = 0; i < n; i++) {
-    holes.push({ x: sx + sdFootX / 2 + i * sdPitch, y: sy + sdFootY / 2, kind: "slot", x0: sdX, y0: sdY, depth: sd.depth, chamfer: sdChamfer });
-  }
+  const kinds = (n: number) => [blockKind(usb, 4, { cols: 2 }), blockKind(sd, n, { oneRow: true })];
+  // Most cards that fit next to all four sticks.
+  let n = Math.floor(Math.max(ax, ay) / (sd.footY + sd.gapY)) + 1;
+  while (n > 0 && !fitsBlocks(ax, ay, kinds(n))) n--;
+  const { holes, counts } = blockHoles(ax, ay, kinds(n), [usb, sd]);
   return {
     holes,
     texts: [],
     depth: Math.max(usb.depth, sd.depth),
-    warnings: holes.length < 4 + Math.max(n, 1) ? [{ key: "warn.insertMixMissing", vars: { n: 4 + Math.max(n, 1) - holes.length } }] : [],
-    facts: () => [{ key: "fact.insertCombo", vars: { usb: holes.length - n, sd: n } }],
+    warnings: counts[0] < 4 || n === 0 ? [{ key: "warn.insertMixMissing", vars: { n: 4 - counts[0] + (n ? 0 : 1) } }] : [],
+    facts: () => [{ key: "fact.insertCombo", vars: { usb: counts[0], sd: counts[1] } }],
   };
 }
 
