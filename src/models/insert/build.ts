@@ -186,7 +186,11 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
       .map(({ spec, n }) => ({ n, spec: spec.kind === "slot" ? { ...spec, ox: spec.oy, oy: spec.ox, footX: spec.footY, footY: spec.footX, gapX: spec.gapY, gapY: spec.gapX } : spec }))
       .sort((a, b) => b.spec.footY - a.spec.footY);
     const specs = kinds.flatMap(({ spec, n }) => Array<ItemSpec>(n).fill(spec));
-    const { placed, missing } = layoutShelves(ax, ay, specs.map((s) => ({ w: s.footX, d: s.footY, gap: s.gapX, rowGap: s.gapY })));
+    const { placed, missing } = layoutShelves(
+      ax,
+      ay,
+      specs.map((s) => ({ w: s.footX, d: s.footY, gap: s.gapX, rowGap: s.gapY, kind: `${s.kind}/${s.ox}/${s.oy}`, kindGap: KIND_GAP })),
+    );
     const holes = placed.map(({ x, y, index }) => {
       const s = specs[index];
       return { x, y, kind: s.kind, x0: s.ox, y0: s.oy, depth: s.depth, chamfer: specEntry(s) };
@@ -200,7 +204,7 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
     };
   }
 
-  if (kind === "usbsd") return planCombo(ax, ay, clearance);
+  if (kind === "usbsd") return planCombo(ax, ay, clearance, p.topSlope !== undefined ? DESK_COMBO_GAP : KIND_GAP);
 
   const { ox, oy, footX, footY, gapX, gapY } = itemSpec(p, clearance);
 
@@ -235,14 +239,16 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
   };
 }
 
-/** Room between the USB block and the SD row, so fingers fit between the sticks and the cards. */
-const COMBO_GAP = 14;
+/** Room between different kinds of items, so fingers fit between them. */
+const KIND_GAP = 14;
+/** The desk organizer's module is tighter; its inlay keeps the closer spacing. */
+const DESK_COMBO_GAP = 8;
 
 /**
  * Four USB sticks in a 2 × 2 block and as many SD cards as fit in one row:
  * beside the block when there is room, else in front of it.
  */
-function planCombo(ax: number, ay: number, clearance: number): Plan {
+function planCombo(ax: number, ay: number, clearance: number, gap: number): Plan {
   const usb = itemSpec(itemPresets.usba, clearance);
   const sd = itemSpec(itemPresets.sd, clearance);
   // The cards stand like a card file, thin side along X.
@@ -250,16 +256,16 @@ function planCombo(ax: number, ay: number, clearance: number): Plan {
   const usbW = 2 * usb.footX + usb.gapX;
   const usbD = 2 * usb.footY + usb.gapY;
   const sdCount = (room: number) => Math.max(0, Math.floor((room - sdFootX) / sdPitch) + 1);
-  const beside = sdCount(ax - usbW - COMBO_GAP);
+  const beside = sdCount(ax - usbW - gap);
   const side = beside >= 2 && Math.max(usbD, sdFootY) <= ay;
-  const n = side ? beside : usbD + COMBO_GAP + sdFootY <= ay ? sdCount(ax) : 0;
+  const n = side ? beside : usbD + gap + sdFootY <= ay ? sdCount(ax) : 0;
   const sdW = n ? sdFootX + (n - 1) * sdPitch : 0;
 
   const holes: Opening[] = [];
   // Lower left corners of the USB block and the SD row.
   const [ux, uy, sx, sy] = side
-    ? [-(usbW + COMBO_GAP + sdW) / 2, -usbD / 2, -(usbW + COMBO_GAP + sdW) / 2 + usbW + COMBO_GAP, -sdFootY / 2]
-    : [-usbW / 2, n ? -(usbD + COMBO_GAP + sdFootY) / 2 + sdFootY + COMBO_GAP : -usbD / 2, -sdW / 2, -(usbD + COMBO_GAP + sdFootY) / 2];
+    ? [-(usbW + gap + sdW) / 2, -usbD / 2, -(usbW + gap + sdW) / 2 + usbW + gap, -sdFootY / 2]
+    : [-usbW / 2, n ? -(usbD + gap + sdFootY) / 2 + sdFootY + gap : -usbD / 2, -sdW / 2, -(usbD + gap + sdFootY) / 2];
   if (usbW <= ax && usbD <= ay) {
     for (let i = 0; i < 2; i++) {
       for (let j = 0; j < 2; j++) {
