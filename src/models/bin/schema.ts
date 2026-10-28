@@ -28,6 +28,7 @@ export const binSchema: ModelSchema = {
         { key: "scoop", label: "bin.scoop", type: "bool", default: false },
         { key: "label", label: "bin.label", type: "bool", default: false },
         { key: "labelDepth", label: "bin.labelDepth", type: "number", default: 12, min: 5, max: 25, step: 0.5, unit: "mm", visible: (p) => p.label === true },
+        { key: "labelText", label: "bin.labelText", type: "text", default: "", maxLength: 300, placeholder: "M3; M4; M5", visible: (p) => p.label === true },
       ],
     },
     {

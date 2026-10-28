@@ -1,5 +1,6 @@
 // Builds real insert geometry with OpenCascade (WASM) in Node.
 import { beforeAll, describe, expect, it } from "vitest";
+import { loadTestFont } from "./font";
 import opencascade from "replicad-opencascadejs";
 import { measureVolume, setOC, type Shape3D } from "replicad";
 import { buildInsert } from "../src/models/insert/build";
@@ -15,6 +16,7 @@ const params = (over: Record<string, unknown> = {}) => sanitize(insertSchema, { 
 
 beforeAll(async () => {
   setOC(await opencascade());
+  await loadTestFont();
 }, 60_000);
 
 function watertight(shape: Shape3D): boolean {
@@ -83,6 +85,12 @@ describe("buildInsert", () => {
     expect(set.vars).toMatchObject({ n: 19, from: 2, to: 20 });
     expect(info.warnings).toEqual([]);
     expect(watertight(pieces[0].shape)).toBe(true);
+    // Every hole has its size engraved in front of it.
+    const labels = pieces[0].labels!;
+    expect(labels).toBeDefined();
+    expect(measureVolume(labels)).toBeGreaterThan(19 * 1);
+    const unlabelled = buildInsert(params({ ...preset("drills"), sizes: "2-20", gridX: 4, gridY: 2, sizeLabels: false }));
+    expect(unlabelled.pieces[0].labels).toBeUndefined();
     const small = buildInsert(params({ ...preset("drills"), sizes: "2-20", gridX: 1, gridY: 1 }));
     expect(small.info.warnings.some((w) => w.key === "warn.insertMissing")).toBe(true);
   }, 60_000);

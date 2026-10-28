@@ -1,5 +1,6 @@
 import { accentGroup, printerGroup } from "../printer";
-import type { ModelSchema, Params } from "../types";
+import { boxCompartment, boxSchema } from "../box/schema";
+import { sanitize, type ModelSchema, type Params } from "../types";
 
 const isBin = (p: Params) => p.form === "bin";
 const isSlot = (p: Params) => p.opening === "slot";
@@ -33,6 +34,19 @@ const presets: Record<string, Params> = {
   ...itemPresets,
   mix: { opening: "mix" },
 };
+/** Play of a loose insert in its box, per side. */
+const BOX_FIT = 0.5;
+const r1 = (n: number) => Math.floor(n * 10) / 10;
+
+/** Size a loose insert to the box last set up (one compartment of it). */
+function fitToBox(_: Params, models: Record<string, Params>): Params {
+  const box = boxCompartment(sanitize(boxSchema, models.box ?? {}));
+  const w = r1(box.w - 2 * BOX_FIT);
+  const d = r1(box.d - 2 * BOX_FIT);
+  // A smaller corner than the box's would run into its rounded corners.
+  return { width: w, length: d, cornerRadius: Math.min(Math.max(2, r1(box.radius)), w / 2 - 0.1, d / 2 - 0.1) };
+}
+
 const mixDefaults: Record<string, number> = { usba: 4, sd: 3, microsd: 1 };
 
 export const insertSchema: ModelSchema = {
@@ -46,6 +60,7 @@ export const insertSchema: ModelSchema = {
         { key: "preset", label: "insert.preset", type: "select", default: "hexbit", options: [...Object.keys(presets), "custom"], presets },
         { key: "opening", label: "insert.opening", type: "select", default: "hex", options: ["round", "hex", "slot", "set", "mix"], advanced: true },
         { key: "sizes", label: "insert.sizes", type: "text", default: "2-10", maxLength: 200, placeholder: "2 3 4 5 6 8 10", visible: isSet },
+        { key: "sizeLabels", label: "insert.sizeLabels", type: "bool", default: true, visible: isSet },
         ...mixItems.map((k) => ({
           key: `count_${k}`,
           label: `insert.preset.${k}`,
@@ -76,6 +91,8 @@ export const insertSchema: ModelSchema = {
         { key: "gridY", label: "bin.gridY", type: "number", default: 1, min: 1, max: 10, step: 1, visible: (p) => isBin(p) && !(isMix(p) && p.autoSize === true) },
         { key: "width", label: "insert.width", type: "number", default: 80, min: 10, max: 1000, step: 0.5, unit: "mm", visible: (p) => !isBin(p) },
         { key: "length", label: "insert.length", type: "number", default: 60, min: 10, max: 1000, step: 0.5, unit: "mm", visible: (p) => !isBin(p) },
+        { key: "fromBox", label: "insert.fromBox", type: "action", run: fitToBox, visible: (p) => !isBin(p) },
+        { key: "cornerRadius", label: "box.cornerRadius", type: "number", default: 2, min: 0.5, max: 50, step: 0.5, unit: "mm", visible: (p) => !isBin(p), advanced: true },
         { key: "heightMode", label: "insert.heightMode", type: "select", default: "auto", options: ["auto", "units"], visible: isBin, advanced: true },
         { key: "heightUnits", label: "bin.heightUnits", type: "number", default: 3, min: 2, max: 30, step: 1, visible: (p) => isBin(p) && p.heightMode === "units", advanced: true },
         { key: "floor", label: "bin.floor", type: "number", default: 1.5, min: 0.6, max: 10, step: 0.1, unit: "mm", advanced: true },

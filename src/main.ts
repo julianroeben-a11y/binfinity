@@ -146,18 +146,47 @@ function renderAll() {
   document.title = `Binfinity · ${t(`model.${state.model}`)}`;
   for (const el of document.querySelectorAll<HTMLElement>("[data-i18n]")) el.textContent = t(el.dataset.i18n!);
   renderModelTabs();
-  renderForm($("#form"), schemas[state.model], state.params, (p) => {
-    state.params = p;
-    scheduleGenerate();
-  });
+  renderForm(
+    $("#form"),
+    schemas[state.model],
+    state.params,
+    (p) => {
+      state.params = p;
+      remember();
+      scheduleGenerate();
+    },
+    remembered,
+  );
   renderInfo(lastInfo.facts, lastInfo.warnings);
   renderStatus();
 }
 
-function selectModel(id: string, raw: Record<string, unknown> = {}) {
+/**
+ * Last settings of every model in this browser tab, so switching models keeps
+ * them and one model can take values from another (insert from box).
+ */
+const remembered: Record<string, Params> = (() => {
+  try {
+    return JSON.parse(sessionStorage.getItem("binfinity.params") ?? "{}") as Record<string, Params>;
+  } catch {
+    return {};
+  }
+})();
+
+function remember() {
+  remembered[state.model] = { ...state.params };
+  try {
+    sessionStorage.setItem("binfinity.params", JSON.stringify(remembered));
+  } catch {
+    // Storage can be blocked; switching models then starts from the defaults.
+  }
+}
+
+function selectModel(id: string, raw?: Record<string, unknown>) {
   if (id !== state.model) viewer.reframeNext();
   state.model = id;
-  state.params = sanitize(schemas[id], raw);
+  state.params = sanitize(schemas[id], raw ?? remembered[id] ?? {});
+  remember();
   renderAll();
   scheduleGenerate();
 }

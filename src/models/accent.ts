@@ -11,7 +11,11 @@ export interface SplitPiece {
 
 /** Split `piece` at `height` below its top (or above its bottom). */
 export function splitAccent(piece: BuiltPiece, enabled: boolean, height: number): SplitPiece {
-  if (!enabled) return { body: piece.shape, accent: null };
+  if (!enabled) {
+    // Without a second colour the engraving stays empty.
+    piece.labels?.delete();
+    return { body: piece.shape, accent: null };
+  }
   const [[, , z0], [, , z1]] = piece.shape.boundingBox.bounds;
   const parts: Shape3D[] = [];
   let body = piece.shape;

@@ -22,7 +22,7 @@ function section(id: string, title: string, open: boolean, className: string) {
  * the user changed. Calls `onChange` with the full parameter set on
  * every edit; visibility rules are re-evaluated after each change.
  */
-export function renderForm(host: HTMLElement, schema: ModelSchema, values: Params, onChange: (p: Params) => void) {
+export function renderForm(host: HTMLElement, schema: ModelSchema, values: Params, onChange: (p: Params) => void, models: Record<string, Params> = {}) {
   host.replaceChildren();
   const rows: { field: Field; row: HTMLElement }[] = [];
   const selects = new Map<string, HTMLSelectElement>();
@@ -47,9 +47,9 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
       const preset = s.presets![String(values[s.key])];
       if (preset && f.key in preset) return preset[f.key];
     }
-    return f.default;
+    return f.type === "action" ? undefined : f.default;
   };
-  const changed = (fields: Field[]) => fields.some((f) => shown(f) && values[f.key] !== expected(f));
+  const changed = (fields: Field[]) => fields.some((f) => f.type !== "action" && shown(f) && values[f.key] !== expected(f));
   const updateVisibility = () => {
     for (const { field, row } of rows) row.hidden = !shown(field);
     // Hide a whole group when none of its fields apply (e.g. compartments of a round box).
@@ -65,6 +65,32 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
     if (more) sets.push({ box: more, fields: extra });
 
     for (const field of group.fields) {
+      if (field.type === "action") {
+        const row = document.createElement("div");
+        row.className = "field field-action";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "small";
+        button.textContent = t(field.label);
+        const hintKey = `${field.label}.hint`;
+        if (has(hintKey)) button.title = t(hintKey);
+        button.addEventListener("click", () => {
+          Object.assign(values, field.run(values, models));
+          for (const k of Object.keys(values)) leavePresets(k);
+          renderForm(host, schema, values, onChange, models);
+          onChange(values);
+        });
+        row.append(button);
+        if (has(hintKey)) {
+          const hint = document.createElement("small");
+          hint.className = "field-hint";
+          hint.textContent = t(hintKey);
+          row.append(hint);
+        }
+        (field.advanced ? more! : box).append(row);
+        rows.push({ field, row });
+        continue;
+      }
       const row = document.createElement("label");
       row.className = `field field-${field.type}`;
       const name = document.createElement("span");
@@ -89,7 +115,7 @@ export function renderForm(host: HTMLElement, schema: ModelSchema, values: Param
           if (preset) {
             // Other inputs show the old values, so draw the form again.
             Object.assign(values, preset);
-            renderForm(host, schema, values, onChange);
+            renderForm(host, schema, values, onChange, models);
           } else {
             leavePresets(field.key);
             updateVisibility();

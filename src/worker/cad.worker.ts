@@ -11,6 +11,8 @@ import { buildBox } from "../models/box/build";
 import { buildInsert } from "../models/insert/build";
 import type { BuildFn, BuiltPiece } from "../models/build-types";
 import { splitAccent } from "../models/accent";
+import { initFont } from "../models/text";
+import fontUrl from "../assets/fonts/inter-bold.woff?url";
 import { ParamError } from "../models/types";
 import { translateMesh, weld, type Mesh } from "../export/mesh";
 import { write3mf } from "../export/threemf";
@@ -41,6 +43,12 @@ let current: { model: string; pieces: Piece[]; plateOffsets: [number, number, nu
 const ready = (async () => {
   const OC = await opencascade({ locateFile: () => wasmUrl });
   setOC(OC);
+  // Without the font everything still works, just without engraved text.
+  try {
+    await initFont(await (await fetch(fontUrl)).arrayBuffer());
+  } catch (e) {
+    console.warn("Font not loaded, labels are left out", e);
+  }
   post({ type: "ready" });
 })();
 
