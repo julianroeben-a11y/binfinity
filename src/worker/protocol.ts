@@ -18,6 +18,8 @@ export interface PreviewPiece extends PreviewMesh {
   accent?: PreviewMesh;
   /** Translation that places the piece in the assembled (slightly exploded) view. */
   assembled: [number, number, number];
+  /** Rotation about X (radians) in the assembled view, applied before `assembled`. */
+  assembledRotX?: number;
   /** Translation that places the piece on its print bed. */
   onPlate: [number, number, number];
 }

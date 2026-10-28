@@ -16,6 +16,11 @@ export interface BuiltPiece {
    * accent they are filled in with the second filament.
    */
   labels?: Shape3D;
+  /**
+   * Where the piece goes in the assembled view when it is printed in another
+   * orientation: rotated about X, then moved.
+   */
+  placement?: { offset: [number, number, number]; rotX: number };
   /** Where the colour accent goes: the top as printed, or the bed side (lids). */
   accentSide?: "top" | "bottom";
 }

@@ -4,6 +4,7 @@ export const modelIcons: Record<string, string> = {
   bin: "M5 9h14v10H5zM5 9l2-4h10l2 4",
   insert: "M4 9h16v10H4zM8 14h.01M12 14h.01M16 14h.01",
   box: "M5 10h14v9H5zM4 6h16v4H4z",
+  desk: "M3 19h18M4 19l2-11h12l2 11M8 8V5M11 8V4M15 8V6",
   drawer: "M3 5h18v14H3zM3 12h18M12 5v14",
 };
 

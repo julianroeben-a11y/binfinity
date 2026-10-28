@@ -5,6 +5,7 @@ import { baseplateSchema } from "./models/baseplate/schema";
 import { binSchema } from "./models/bin/schema";
 import { boxSchema } from "./models/box/schema";
 import { insertSchema } from "./models/insert/schema";
+import { deskSchema } from "./models/desk/schema";
 import { layoutBaseplate } from "./models/baseplate/layout";
 import { conflicts, drawerSchema, footprint, freeSpot, itemDiff, itemParams, itemSchema, parseItems, type DrawerItem } from "./models/drawer/schema";
 import { drawerBaseplate } from "./models/drawer/build";
@@ -18,13 +19,13 @@ import { Viewer } from "./ui/viewer";
 import { CadClient } from "./worker/client";
 import type { ExportFile, ExportFormat } from "./worker/protocol";
 
-const schemas: Record<string, ModelSchema> = { drawer: drawerSchema, baseplate: baseplateSchema, bin: binSchema, box: boxSchema, insert: insertSchema };
+const schemas: Record<string, ModelSchema> = { desk: deskSchema, drawer: drawerSchema, baseplate: baseplateSchema, bin: binSchema, box: boxSchema, insert: insertSchema };
 
 /** The areas in the top bar and their models, shown in the rail on the left. */
 const areas: { id: string; models: string[] }[] = [
   { id: "drawer", models: ["drawer"] },
   { id: "gridfinity", models: ["baseplate", "bin", "insert"] },
-  { id: "organizer", models: ["box"] },
+  { id: "organizer", models: ["box", "desk"] },
 ];
 const areaOf = (model: string) => areas.find((a) => a.models.includes(model))!;
 /** Model last used in each area, so switching areas comes back to it. */
@@ -343,8 +344,9 @@ function remember() {
 function selectModel(id: string, raw?: Record<string, unknown>) {
   if (id !== state.model) viewer.reframeNext();
   state.part = null;
-  // A drawer is looked at assembled, everything else on the print beds.
-  if ((id === "drawer") !== (state.model === "drawer")) setViewMode(id === "drawer" ? "assembled" : "plates");
+  // A drawer and a desk organizer are looked at assembled, everything else on the print beds.
+  const assembled = (m: string) => m === "drawer" || m === "desk";
+  if (assembled(id) !== assembled(state.model)) setViewMode(assembled(id) ? "assembled" : "plates");
   state.model = id;
   lastInArea[areaOf(id).id] = id;
   state.params = sanitize(schemas[id], raw ?? remembered[id] ?? {});

@@ -12,6 +12,7 @@ import { buildBin } from "../models/bin/build";
 import { buildBox } from "../models/box/build";
 import { buildInsert } from "../models/insert/build";
 import { buildDrawer } from "../models/drawer/build";
+import { buildDesk } from "../models/desk/build";
 import { cachedBuild } from "../models/cache";
 import type { BuildFn, BuiltPiece } from "../models/build-types";
 import { splitAccent } from "../models/accent";
@@ -33,6 +34,7 @@ const models: Record<string, BuildFn> = {
   box: buildBox,
   insert: buildInsert,
   drawer: buildDrawer,
+  desk: buildDesk,
 };
 
 /** Gap between split pieces in the assembled preview. */
@@ -139,9 +141,11 @@ async function handle(req: Request) {
     post({ type: "progress", id: req.id, stage: "meshing" });
     // A drawer is shown as it goes together, without gaps between the plate pieces.
     const offsets = req.model === "drawer" ? split.map((): [number, number, number] => [0, 0, 0]) : explodedOffsets(split);
+    split.forEach((p, i) => p.placement && (offsets[i] = p.placement.offset));
     const preview: PreviewPiece[] = split.map((p, i) => ({
       name: p.name,
       assembled: offsets[i],
+      assembledRotX: p.placement?.rotX,
       onPlate: plates.offsets[i],
       ...previewMesh(p.shape),
       accent: p.accent ? previewMesh(p.accent) : undefined,
