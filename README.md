@@ -69,7 +69,7 @@ docker pull ghcr.io/julianroeben-a11y/binfinity:latest
 docker compose up -d   # in the directory of your compose file
 ```
 
-`UPDATE_TOKEN` and `WATCHTOWER_HTTP_API_TOKEN` must match; the helper is not exposed outside the compose network.
+`UPDATE_TOKEN` and `WATCHTOWER_HTTP_API_TOKEN` must match; the helper is not exposed outside the compose network. Both containers must share a user-defined network (`binfinity` in the compose file): on Docker's default `bridge` network the app cannot resolve the helper's name and the button reports "Update helper not reachable".
 
 ## Development
 
