@@ -39,10 +39,13 @@ export const itemPresets: Record<string, Params> = {
 /** Items that can be combined in one insert, each with its own count. */
 export const mixItems = Object.keys(itemPresets).filter((k) => itemPresets[k].opening !== "set");
 const isMix = (p: Params) => p.opening === "mix";
-const uniform = (p: Params) => !isSet(p) && !isMix(p);
+/** Fixed combination: four USB sticks (2 × 2) and a row of SD cards. */
+const isCombo = (p: Params) => p.opening === "usbsd";
+const uniform = (p: Params) => !isSet(p) && !isMix(p) && !isCombo(p);
 
 const presets: Record<string, Params> = {
   ...itemPresets,
+  usbsd: { opening: "usbsd" },
   mix: { opening: "mix" },
 };
 /** Play of a loose insert in its box, per side. */
@@ -69,7 +72,7 @@ export const insertSchema: ModelSchema = {
       tab: "main",
       fields: [
         { key: "preset", label: "insert.preset", type: "select", default: "hexbit", options: [...Object.keys(presets), "custom"], presets },
-        { key: "opening", label: "insert.opening", type: "select", default: "hex", options: ["round", "hex", "slot", "set", "mix"], advanced: true },
+        { key: "opening", label: "insert.opening", type: "select", default: "hex", options: ["round", "hex", "slot", "set", "usbsd", "mix"], advanced: true },
         { key: "sizes", label: "insert.sizes", type: "text", default: "2-10", maxLength: 200, placeholder: "2 3 4 5 6 8 10", visible: isSet },
         { key: "setShape", label: "insert.setShape", type: "select", default: "round", options: ["round", "hex"], visible: isSet, advanced: true },
         { key: "sizeLabels", label: "insert.sizeLabels", type: "bool", default: true, visible: isSet },
@@ -85,11 +88,11 @@ export const insertSchema: ModelSchema = {
         })),
         { key: "size", label: "insert.size", type: "number", default: 6.35, min: 0.5, max: 100, step: 0.05, unit: "mm", visible: uniform, advanced: true },
         { key: "slotWidth", label: "insert.slotWidth", type: "number", default: 4.5, min: 0.5, max: 50, step: 0.05, unit: "mm", visible: isSlot, advanced: true },
-        { key: "holeDepth", label: "insert.holeDepth", type: "number", default: 10, min: 2, max: 150, step: 0.5, unit: "mm", visible: (p) => !isMix(p), advanced: true },
+        { key: "holeDepth", label: "insert.holeDepth", type: "number", default: 10, min: 2, max: 150, step: 0.5, unit: "mm", visible: (p) => !isMix(p) && !isCombo(p), advanced: true },
         { key: "clearance", label: "insert.clearance", type: "number", default: 0.4, min: 0, max: 2, step: 0.05, unit: "mm", advanced: true },
         { key: "itemX", label: "insert.itemX", type: "number", default: 7.4, min: 0.5, max: 150, step: 0.5, unit: "mm", visible: uniform, advanced: true },
         { key: "itemY", label: "insert.itemY", type: "number", default: 12, min: 0.5, max: 150, step: 0.5, unit: "mm", visible: isSlot, advanced: true },
-        { key: "gap", label: "insert.gap", type: "number", default: 6, min: 0, max: 50, step: 0.5, unit: "mm", visible: (p) => !isMix(p), advanced: true },
+        { key: "gap", label: "insert.gap", type: "number", default: 6, min: 0, max: 50, step: 0.5, unit: "mm", visible: (p) => !isMix(p) && !isCombo(p), advanced: true },
         { key: "stagger", label: "insert.stagger", type: "bool", default: false, visible: (p) => !isSlot(p) && uniform(p), advanced: true },
       ],
     },

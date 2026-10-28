@@ -3,6 +3,7 @@
 import { draw, drawRoundedRectangle, makeCompound, type Point, type Shape3D } from "replicad";
 import { cellCentres, foot, footHoles, lipTool, LIP_ROUND } from "../bin/build";
 import { chamferEdgesAt, roundEdgesAt } from "../edges";
+import { cutSlope } from "../slope";
 import { BIN_CLEARANCE, BIN_FOOT_HEIGHT, BIN_RADIUS, GRID, HEIGHT_UNIT, LIP_HEIGHT, LIP_INSET } from "../gridfinity";
 import { planarLoft } from "../solids";
 import { engrave, textWidth, type TextItem } from "../text";
@@ -46,22 +47,25 @@ function rectRing(x: number, y: number, z: number): Point[] {
  * One opening, centred on the origin, from `z0` up through the top face at
  * `top`, with a 45° entry chamfer `c`.
  */
-function openingTool(kind: string, x: number, y: number, z0: number, top: number, c: number): Shape3D {
+function openingTool(kind: string, x: number, y: number, z0: number, top: number, c: number, over = 0): Shape3D {
   const zc = top - c;
   if (kind === "round") {
     // Revolving the profile gives true cylinder and cone faces.
     const r = x / 2;
-    return draw([0, z0])
+    let profile = draw([0, z0])
       .lineTo([r, z0])
       .lineTo([r, zc])
-      .lineTo([r + c + EPS, top + EPS])
-      .lineTo([0, top + EPS])
+      .lineTo([r + c + EPS, top + EPS]);
+    if (over > 0) profile = profile.lineTo([r + c + EPS, top + over]);
+    return profile
+      .lineTo([0, top + Math.max(over, EPS)])
       .close()
       .sketchOnPlane("XZ")
       .revolve() as Shape3D;
   }
   const ring = kind === "hex" ? (g: number, z: number) => hexRing(x + 2 * g, z) : (g: number, z: number) => rectRing(x + 2 * g, y + 2 * g, z);
-  return planarLoft([ring(0, z0), ring(0, zc), ring(c + EPS, top + EPS)]);
+  // `over` carries the opening on up through a sloped top.
+  return planarLoft([ring(0, z0), ring(0, zc), ring(c + EPS, top + EPS), ...(over > 0 ? [ring(c + EPS, top + over)] : [])]);
 }
 
 interface Opening {
@@ -196,6 +200,8 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
     };
   }
 
+  if (kind === "usbsd") return planCombo(ax, ay, clearance);
+
   const { ox, oy, footX, footY, gapX, gapY } = itemSpec(p, clearance);
 
   // Slots may be turned by 90° if that fits more of them.
@@ -229,6 +235,53 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
   };
 }
 
+/** Room between the USB block and the SD row. */
+const COMBO_GAP = 8;
+
+/**
+ * Four USB sticks in a 2 × 2 block and as many SD cards as fit in one row:
+ * beside the block when there is room, else in front of it.
+ */
+function planCombo(ax: number, ay: number, clearance: number): Plan {
+  const usb = itemSpec(itemPresets.usba, clearance);
+  const sd = itemSpec(itemPresets.sd, clearance);
+  // The cards stand like a card file, thin side along X.
+  const [sdX, sdY, sdFootX, sdFootY, sdPitch] = [sd.oy, sd.ox, sd.footY, sd.footX, sd.footY + sd.gapY];
+  const usbW = 2 * usb.footX + usb.gapX;
+  const usbD = 2 * usb.footY + usb.gapY;
+  const sdCount = (room: number) => Math.max(0, Math.floor((room - sdFootX) / sdPitch) + 1);
+  const beside = sdCount(ax - usbW - COMBO_GAP);
+  const side = beside >= 2 && Math.max(usbD, sdFootY) <= ay;
+  const n = side ? beside : usbD + COMBO_GAP + sdFootY <= ay ? sdCount(ax) : 0;
+  const sdW = n ? sdFootX + (n - 1) * sdPitch : 0;
+
+  const holes: Opening[] = [];
+  // Lower left corners of the USB block and the SD row.
+  const [ux, uy, sx, sy] = side
+    ? [-(usbW + COMBO_GAP + sdW) / 2, -usbD / 2, -(usbW + COMBO_GAP + sdW) / 2 + usbW + COMBO_GAP, -sdFootY / 2]
+    : [-usbW / 2, n ? -(usbD + COMBO_GAP + sdFootY) / 2 + sdFootY + COMBO_GAP : -usbD / 2, -sdW / 2, -(usbD + COMBO_GAP + sdFootY) / 2];
+  if (usbW <= ax && usbD <= ay) {
+    for (let i = 0; i < 2; i++) {
+      for (let j = 0; j < 2; j++) {
+        const x = ux + usb.footX / 2 + i * (usb.footX + usb.gapX);
+        const y = uy + usb.footY / 2 + j * (usb.footY + usb.gapY);
+        holes.push({ x, y, kind: "slot", x0: usb.ox, y0: usb.oy, depth: usb.depth, chamfer: specEntry(usb) });
+      }
+    }
+  }
+  const sdChamfer = specEntry({ ...sd, footX: sdFootX, footY: sdFootY, ox: sdX, oy: sdY, gapX: sd.gapY, gapY: sd.gapX });
+  for (let i = 0; i < n; i++) {
+    holes.push({ x: sx + sdFootX / 2 + i * sdPitch, y: sy + sdFootY / 2, kind: "slot", x0: sdX, y0: sdY, depth: sd.depth, chamfer: sdChamfer });
+  }
+  return {
+    holes,
+    texts: [],
+    depth: Math.max(usb.depth, sd.depth),
+    warnings: holes.length < 4 + Math.max(n, 1) ? [{ key: "warn.insertMixMissing", vars: { n: 4 + Math.max(n, 1) - holes.length } }] : [],
+    facts: () => [{ key: "fact.insertCombo", vars: { usb: holes.length - n, sd: n } }],
+  };
+}
+
 /** Grid sizes from small to large, square-ish first. */
 const GRID_SIZES = Array.from({ length: 100 }, (_, i): [number, number] => [(i % 10) + 1, Math.floor(i / 10) + 1]).sort(
   ([ax, ay], [bx, by]) => ax * ay - bx * by || Math.abs(ax - ay) - Math.abs(bx - by) || ay - by,
@@ -238,6 +291,8 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
   const kind = p.opening as string;
   const isBin = p.form === "bin";
   const floor = p.floor as number;
+  // Loose inserts for the desk organizer follow its sloped top (rise per mm towards +Y).
+  const slope = isBin ? 0 : Math.max(0, (p.topSlope as number | undefined) ?? 0);
   const warnings: BuildInfo["warnings"] = [];
 
   // Outer size, and the free area the items have to stay inside.
@@ -310,9 +365,9 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
     if (holes) shape = shape.cut(holes);
   } else {
     const r = Math.min(p.cornerRadius as number, w / 2 - 0.1, d / 2 - 0.1);
-    shape = drawRoundedRectangle(w, d, r).sketchOnPlane("XY").extrude(top) as Shape3D;
+    shape = drawRoundedRectangle(w, d, r).sketchOnPlane("XY").extrude(top + d * slope) as Shape3D;
     shape = chamferEdgesAt(shape, 0, LOOSE_CHAMFER);
-    shape = roundEdgesAt(shape, top, TOP_ROUND);
+    shape = slope ? cutSlope(shape, w, d, top, slope, TOP_ROUND) : roundEdgesAt(shape, top, TOP_ROUND);
   }
 
   // The openings, one tool per kind and size.
@@ -321,17 +376,18 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
     const key = `${h.kind}/${h.x0}/${h.y0}/${h.depth}/${h.chamfer}`;
     let proto = protos.get(key);
     if (!proto) {
-      proto = openingTool(h.kind, h.x0, h.y0, surface - Math.min(h.depth, holeDepth), surface, h.chamfer);
+      proto = openingTool(h.kind, h.x0, h.y0, surface - Math.min(h.depth, holeDepth), surface, h.chamfer, slope ? (h.y0 / 2 + h.chamfer) * slope + 1 : 0);
       protos.set(key, proto);
     }
-    return proto.clone().translate(h.x, h.y, 0);
+    // On a sloped top each opening starts at the top above its centre.
+    return proto.clone().translate(h.x, h.y, (h.y + d / 2) * slope);
   });
   for (const t of protos.values()) t.delete();
   shape = shape.cut(makeCompound(tools) as unknown as Shape3D);
 
   const engraved = engrave(
     shape,
-    plan.texts.map((t) => ({ ...t, z: surface })),
+    slope ? [] : plan.texts.map((t) => ({ ...t, z: surface })),
   );
   shape = engraved.shape;
   if (engraved.skipped.length) warnings.push({ key: "warn.labelSkipped", vars: { texts: engraved.skipped.join(", ") } });
@@ -340,10 +396,10 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
   shape = shape.translate(w / 2, d / 2, 0);
   const labels = engraved.labels?.translate(w / 2, d / 2, 0);
 
-  const facts: BuildInfo["facts"] = [{ key: "fact.size", vars: { x: r2(w), y: r2(d), z: r2(top) } }, ...plan.facts(holeDepth)];
+  const facts: BuildInfo["facts"] = [{ key: "fact.size", vars: { x: r2(w), y: r2(d), z: r2(top + d * slope) } }, ...plan.facts(holeDepth)];
   const name = isBin ? `insert_${gx}x${gy}x${unitsLabel}` : `insert_${r2(w)}x${r2(d)}`;
   return {
-    pieces: [{ name, shape, labels, origin: [0, 0, 0], size: [w, d, top], grid: [0, 0] }],
-    info: { size: [w, d, top], facts, warnings },
+    pieces: [{ name, shape, labels, origin: [0, 0, 0], size: [w, d, top + d * slope], grid: [0, 0] }],
+    info: { size: [w, d, top + d * slope], facts, warnings },
   };
 }
