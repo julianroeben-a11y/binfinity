@@ -55,7 +55,8 @@ button, input, select { font: inherit; color: inherit; }
 .models small { font-size: 11px; font-weight: 400; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .source { color: var(--muted); font-size: 14px; }
-.version { color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
+.version { color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; text-decoration: none; }
+.version:hover { text-decoration: underline; }
 button.small { padding: 5px 10px; font-size: 13px; }
 .lang select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--input); }
 

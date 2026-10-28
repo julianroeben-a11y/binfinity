@@ -31,8 +31,10 @@ async function latestCommit(): Promise<string | null> {
  * an update button. After triggering an update it waits for the container to
  * come back with a new version, then reloads the page.
  */
-export async function initUpdater(versionEl: HTMLElement, button: HTMLButtonElement) {
+export async function initUpdater(versionEl: HTMLAnchorElement, button: HTMLButtonElement) {
   versionEl.textContent = __APP_VERSION__ === "dev" ? "dev" : `v${__APP_VERSION__}`;
+  // The version links to the changes it contains.
+  versionEl.href = __APP_VERSION__ === "dev" ? `https://github.com/${REPO}` : `https://github.com/${REPO}/commits/${__APP_VERSION__}`;
   const config = await readConfig();
   if (!config?.selfUpdate) return;
 

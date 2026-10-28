@@ -192,7 +192,7 @@ $("#share").addEventListener("click", async () => {
   }
 });
 
-initUpdater($("#version"), $<HTMLButtonElement>("#update"));
+initUpdater($<HTMLAnchorElement>("#version"), $<HTMLButtonElement>("#update"));
 
 const initial = readHash();
 selectModel(initial.model, initial.params);
