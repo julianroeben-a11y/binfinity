@@ -35,6 +35,8 @@ export const binSchema: ModelSchema = {
         { key: "wall", label: "bin.wall", type: "number", default: 1.2, min: 0.8, max: 4, step: 0.05, unit: "mm" },
         { key: "divider", label: "bin.divider", type: "number", default: 1.2, min: 0.8, max: 4, step: 0.05, unit: "mm", visible: (p) => (p.divX as number) > 1 || (p.divY as number) > 1 },
         { key: "floor", label: "bin.floor", type: "number", default: 1.2, min: 0.6, max: 10, step: 0.1, unit: "mm" },
+        { key: "honeycomb", label: "bin.honeycomb", type: "bool", default: false },
+        { key: "honeycombSize", label: "bin.honeycombSize", type: "number", default: 8, min: 4, max: 30, step: 0.5, unit: "mm", visible: (p) => p.honeycomb === true },
       ],
     },
     {

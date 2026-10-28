@@ -32,9 +32,21 @@ export interface SelectField extends FieldBase {
   default: string;
   /** Option values; their labels are looked up as `<label>.<value>`. */
   options: string[];
+  /**
+   * Values written into other fields when an option is picked. Editing one of
+   * those fields afterwards switches the select to its `custom` option.
+   */
+  presets?: Record<string, Params>;
 }
 
-export type Field = NumberField | BoolField | SelectField;
+export interface TextField extends FieldBase {
+  type: "text";
+  default: string;
+  maxLength: number;
+  placeholder?: string;
+}
+
+export type Field = NumberField | BoolField | SelectField | TextField;
 
 export interface FieldGroup {
   title: string;
@@ -65,6 +77,8 @@ export function sanitize(schema: ModelSchema, input: Record<string, unknown>): P
         if (Number.isFinite(n)) p[f.key] = Math.min(f.max, Math.max(f.min, n));
       } else if (f.type === "bool") {
         p[f.key] = v === true || v === "true" || v === "1";
+      } else if (f.type === "text") {
+        p[f.key] = String(v).slice(0, f.maxLength);
       } else if (f.options.includes(String(v))) {
         p[f.key] = String(v);
       }

@@ -76,6 +76,22 @@ describe("buildBin", () => {
     checkMesh(plain);
   }, 120_000);
 
+  it("cuts honeycomb openings through the outer walls", () => {
+    for (const over of [{ heightUnits: 6 }, { heightUnits: 6, divX: 3, divY: 2, label: true, scoop: true, lip: false }]) {
+      const plain = buildBin(params(over));
+      const comb = buildBin(params({ ...over, honeycomb: true }));
+      const fact = comb.info.facts.find((f) => f.key === "fact.honeycomb");
+      expect(fact).toBeDefined();
+      const n = fact!.vars!.n as number;
+      expect(n).toBeGreaterThan(4);
+      const hole = (Math.sqrt(3) / 2) * 8 * 8 * 1.2;
+      const removed = measureVolume(plain.pieces[0].shape) - measureVolume(comb.pieces[0].shape);
+      expect(removed).toBeGreaterThan(n * hole * 0.95);
+      expect(removed).toBeLessThan(n * hole * 1.4);
+      checkMesh(comb.pieces[0].shape);
+    }
+  }, 120_000);
+
   it("adds dividers, scoop and label as extra material", () => {
     const plain = measureVolume(buildBin(params()).pieces[0].shape);
     const divided = buildBin(params({ divX: 3, divY: 2, scoop: true, label: true }));

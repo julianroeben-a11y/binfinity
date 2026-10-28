@@ -1,5 +1,6 @@
 import { draw, drawRoundedRectangle, makeBox, makeCompound, makeCylinder, sketchCircle, sketchRoundedRectangle, type Shape3D, type Sketch } from "replicad";
 import { roundEdgesAt } from "../edges";
+import { HONEYCOMB_WEB, honeycombTool } from "../honeycomb";
 import {
   BIN_CLEARANCE,
   BIN_FOOT,
@@ -22,7 +23,7 @@ const SCREW_DEPTH = 6;
 /** Width of the flat top of the stacking lip before rounding. */
 const LIP_RIDGE = 1;
 /** Radius of the rounded lip top edges. */
-const LIP_ROUND = 0.45;
+export const LIP_ROUND = 0.45;
 
 /** Rounded rectangle section, `inset` mm inside the bin outline, at height `z`. */
 function section(w: number, d: number, inset: number, z: number) {
@@ -31,7 +32,7 @@ function section(w: number, d: number, inset: number, z: number) {
 }
 
 /** One Gridfinity foot, centred on the origin, slightly taller so it fuses into the body. */
-function foot(): Shape3D {
+export function foot(): Shape3D {
   const top = GRID - BIN_CLEARANCE;
   const s = (inset: number, z: number) => section(top, top, inset, z);
   const z1 = BIN_FOOT.bottomChamfer;
@@ -47,7 +48,7 @@ function foot(): Shape3D {
  * Tool that removes the stacking-lip pocket and the 45° support below it. It
  * spans the whole bin, so it also trims the divider tops below the lip.
  */
-function lipTool(w: number, d: number, wall: number, top: number, below = 0): Shape3D {
+export function lipTool(w: number, d: number, wall: number, top: number, below = 0): Shape3D {
   const support = Math.max(0, LIP_INSET - wall);
   const zLip = top - LIP_HEIGHT;
   const zChamfer = zLip + LIP.bottomChamfer + LIP.vertical;
@@ -161,6 +162,39 @@ function compartmentFill(o: CompartmentOptions): Shape3D | null {
   return parts.length === 1 ? parts[0] : parts[0].fuse(parts[1]);
 }
 
+/**
+ * Magnet and screw holes in the feet, as one compound. One tool per position
+ * (magnet pocket and screw hole fused), so the copies never overlap.
+ */
+export function footHoles(p: Params, cellCenters: [number, number][]): Shape3D | null {
+  let holeTool: Shape3D | null = null;
+  if (p.magnets === true) {
+    const r = (p.magnetDiameter as number) / 2;
+    const rim = sketchCircle(r + MAGNET_CHAMFER + EPS, { plane: "XY", origin: -EPS }).loftWith(sketchCircle(r, { plane: "XY", origin: MAGNET_CHAMFER }));
+    holeTool = makeCylinder(r, (p.magnetDepth as number) + EPS, [0, 0, -EPS]).fuse(rim);
+  }
+  if (p.screws === true) {
+    const screw = makeCylinder(SCREW_DIAMETER / 2, SCREW_DEPTH + EPS, [0, 0, -EPS]);
+    holeTool = holeTool ? holeTool.fuse(screw) : screw;
+  }
+  if (!holeTool) return null;
+  const holes: Shape3D[] = [];
+  for (const [cx, cy] of cellCenters) {
+    for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      holes.push(holeTool.clone().translate(cx + dx * HOLE_OFFSET, cy + dy * HOLE_OFFSET, 0));
+    }
+  }
+  holeTool.delete();
+  return makeCompound(holes) as unknown as Shape3D;
+}
+
+/** Centres of the grid cells of a gx × gy bin centred on the origin. */
+export function cellCentres(gx: number, gy: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let i = 0; i < gx; i++) for (let j = 0; j < gy; j++) out.push([(i - (gx - 1) / 2) * GRID, (j - (gy - 1) / 2) * GRID]);
+  return out;
+}
+
 export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   const gx = Math.round(p.gridX as number);
   const gy = Math.round(p.gridY as number);
@@ -195,8 +229,7 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     .sketchOnPlane("XY", BIN_FOOT_HEIGHT - EPS)
     .extrude(top - BIN_FOOT_HEIGHT + EPS) as Shape3D;
   const footTool = foot();
-  const cellCenters: [number, number][] = [];
-  for (let i = 0; i < gx; i++) for (let j = 0; j < gy; j++) cellCenters.push([(i - (gx - 1) / 2) * GRID, (j - (gy - 1) / 2) * GRID]);
+  const cellCenters = cellCentres(gx, gy);
   let shape = body.fuse(makeCompound(cellCenters.map(([x, y]) => footTool.clone().translate(x, y, 0))) as unknown as Shape3D);
   footTool.delete();
 
@@ -206,6 +239,29 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   const divided = divX > 1 || divY > 1;
   const zDiv = cavityTop - DIVIDER_DROP;
   const flared = lip && divided;
+  const compRadius = Math.max(0.5, Math.min(BIN_RADIUS - wall, cw / 2 - 0.01, cd / 2 - 0.01));
+  const labelTop = flared ? zDiv - divider / 2 - 0.2 : lip ? cavityTop : cavityTop - LABEL_DROP;
+
+  // Honeycomb openings in the outer walls, cut while the body is still solid.
+  // They stay clear of the floor, scoop, label shelf, rim and dividers.
+  let honeycombCount = 0;
+  if (p.honeycomb === true) {
+    const web = HONEYCOMB_WEB;
+    const { tool, count } = honeycombTool({
+      width: w,
+      depth: d,
+      wall,
+      z0: floorZ + web + scoop,
+      z1: Math.min(lip ? zDiv : top, labelDepth > 0 ? labelTop - labelDepth : Infinity) - web - 0.5,
+      cell: p.honeycombSize as number,
+      cornerMargin: Math.max(BIN_RADIUS, wall + compRadius) + web,
+      dividersX: Array.from({ length: divX - 1 }, (_, i) => -innerW / 2 + (i + 1) * cw + (i + 0.5) * divider),
+      dividersY: Array.from({ length: divY - 1 }, (_, i) => -innerD / 2 + (i + 1) * cd + (i + 0.5) * divider),
+      dividerMargin: divider / 2 + compRadius + web,
+    });
+    if (tool) shape = shape.cut(tool);
+    honeycombCount = count;
+  }
 
   // The lip goes first and its ridge is rounded while the shape is still
   // simple; that is several times faster than doing it after the compartments.
@@ -213,7 +269,6 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     shape = shape.cut(lipTool(w, d, wall, top, flared ? DIVIDER_DROP : 0));
     shape = roundEdgesAt(shape, top, LIP_ROUND);
   }
-  const compRadius = Math.max(0.5, Math.min(BIN_RADIUS - wall, cw / 2 - 0.01, cd / 2 - 0.01));
   const opts = {
     width: cw,
     depth: cd,
@@ -223,7 +278,7 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     scoop,
     label: labelDepth,
     // Without a lip the shelf stays below the rim, so the rim can be rounded.
-    labelTop: flared ? zDiv - divider / 2 - 0.2 : lip ? cavityTop : cavityTop - LABEL_DROP,
+    labelTop,
   };
   const tools = new Map<string, Shape3D>();
   const comps: Shape3D[] = [];
@@ -247,28 +302,8 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   // Without a lip, round the wall and divider tops.
   if (!lip) shape = roundEdgesAt(shape, top, Math.min(EDGE_ROUND, wall / 2 - 0.1, divider / 2 - 0.1));
 
-  // Magnet and screw holes in the feet. One tool per position (magnet pocket
-  // and screw hole fused), so the copies in the compound never overlap.
-  let holeTool: Shape3D | null = null;
-  if (p.magnets === true) {
-    const r = (p.magnetDiameter as number) / 2;
-    const rim = sketchCircle(r + MAGNET_CHAMFER + EPS, { plane: "XY", origin: -EPS }).loftWith(sketchCircle(r, { plane: "XY", origin: MAGNET_CHAMFER }));
-    holeTool = makeCylinder(r, (p.magnetDepth as number) + EPS, [0, 0, -EPS]).fuse(rim);
-  }
-  if (p.screws === true) {
-    const screw = makeCylinder(SCREW_DIAMETER / 2, SCREW_DEPTH + EPS, [0, 0, -EPS]);
-    holeTool = holeTool ? holeTool.fuse(screw) : screw;
-  }
-  const holes: Shape3D[] = [];
-  if (holeTool) {
-    for (const [cx, cy] of cellCenters) {
-      for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-        holes.push(holeTool.clone().translate(cx + dx * HOLE_OFFSET, cy + dy * HOLE_OFFSET, 0));
-      }
-    }
-    holeTool.delete();
-  }
-  if (holes.length) shape = shape.cut(makeCompound(holes) as unknown as Shape3D);
+  const holes = footHoles(p, cellCenters);
+  if (holes) shape = shape.cut(holes);
 
   // Place the bin with its corner at the origin, like the baseplate.
   shape = shape.translate(w / 2, d / 2, 0);
@@ -279,6 +314,10 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     { key: "fact.size", vars: { x: r2(w), y: r2(d), z: r2(top) } },
     { key: "fact.compartment", vars: { n: divX * divY, x: r2(cw), y: r2(cd), z: r2(cavityTop - floorZ) } },
   ];
+  if (p.honeycomb === true) {
+    if (honeycombCount) facts.push({ key: "fact.honeycomb", vars: { n: honeycombCount } });
+    else warnings.push({ key: "warn.honeycombNone" });
+  }
   return {
     pieces: [{ name: `bin_${gx}x${gy}x${heightLabel}`, shape, origin: [0, 0, 0], size: [w, d, top], grid: [0, 0] }],
     info: { size: [w, d, top], facts, warnings },

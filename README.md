@@ -1,8 +1,8 @@
 # Binfinity
 
-**Parametric generator for 3D-printable storage.** Gridfinity baseplates and bins plus custom boxes today, inserts next. Everything is computed in your browser with a real CAD kernel ([OpenCascade](https://dev.opencascade.org/) via [replicad](https://replicad.xyz)), and you download STL or 3MF files ready for your slicer.
+**Parametric generator for 3D-printable storage.** Gridfinity baseplates and bins, custom boxes and inserts that hold tools, batteries and memory cards. Everything is computed in your browser with a real CAD kernel ([OpenCascade](https://dev.opencascade.org/) via [replicad](https://replicad.xyz)), and you download STL or 3MF files ready for your slicer.
 
-> 🇩🇪 Binfinity erzeugt Gridfinity-Baseplates und -Bins sowie eigene Boxen (bald auch Einsätze) direkt im Browser und exportiert STL oder 3MF. Die Oberfläche gibt es auf Deutsch und Englisch. Self-Hosting per Docker, z. B. auf ZimaOS, siehe unten.
+> 🇩🇪 Binfinity erzeugt Gridfinity-Baseplates und -Bins sowie eigene Boxen und Einsätze (Bits, Fräser, Bohrer, Batterien, USB-Sticks, SD-Karten) direkt im Browser und exportiert STL oder 3MF. Die Oberfläche gibt es auf Deutsch und Englisch. Self-Hosting per Docker, z. B. auf ZimaOS, siehe unten.
 
 ## Features
 
@@ -19,13 +19,20 @@
 - Standard Gridfinity feet, optional stacking lip with a printable 45° support and rounded top edge.
 - Compartments in both directions, finger scoop, label shelf.
 - Wall, divider and floor thickness.
+- Optional **honeycomb walls** to save filament.
 - Magnet holes and M3 screw holes in every foot.
 
 **Boxes**
 - Rectangular (with corner radius), round or hexagonal, sized by outside or inside dimensions in mm.
-- Wall and floor thickness, compartments for rectangular boxes.
+- Wall and floor thickness, compartments and honeycomb walls for rectangular boxes.
 - Stackable: a recessed foot drops into the opening of the box below.
 - Lift-off lid with insert ring, printed as a second object.
+
+**Inserts**
+- Holes or slots that hold items upright: presets for 1/4" hex bits, router bits (6/8/12 mm shank), AA and AAA batteries, USB-A/USB-C sticks, SD and microSD cards, or your own sizes.
+- **Drill sets**: one hole per size from a list such as `2-20` or `1-6/0.5 8 10`.
+- Spacing from the widest part of the item (e.g. a 20 mm router bit head) plus room for your fingers; adjustable play in the openings and a lead-in chamfer.
+- As a Gridfinity bin (1 × 1 to 10 × 10, automatic height, stacking lip, magnets) or as a loose block for a box.
 
 **General**
 - Live 3D preview on your print bed(s), or assembled; shareable links (all parameters live in the URL).
@@ -40,7 +47,8 @@
 1. ✅ Gridfinity baseplates
 2. ✅ Gridfinity bins
 3. ✅ Custom boxes in mm, stackable, with lids
-4. Custom inserts and cut-outs
+4. ✅ Inserts for tools, batteries and memory cards
+5. Inserts shaped after your own parts (cut-outs from outlines)
 
 ## Self-hosting with Docker
 
