@@ -152,11 +152,14 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
     const labelled = p.sizeLabels === true;
     const band = labelled ? SIZE_LABEL_GAP + SIZE_LABEL_CAP : 0;
     const names = sizes.map(sizeText);
-    const items = sizes.map((s, i) => ({ w: Math.max(s + clearance, labelled ? textWidth(names[i], SIZE_LABEL_CAP) : 0), d: s + clearance + band, gap: g }));
+    // Hex keys: the size is across flats, the room is across corners.
+    const hex = p.setShape === "hex";
+    const across = (s: number) => (hex ? ((s + clearance) * 2) / Math.sqrt(3) : s + clearance);
+    const items = sizes.map((s, i) => ({ w: Math.max(across(s), labelled ? textWidth(names[i], SIZE_LABEL_CAP) : 0), d: across(s) + band, gap: g }));
     const { placed, missing } = layoutShelves(ax, ay, items);
     const holes = placed.map(({ x, y, index }) => {
       const size = sizes[index] + clearance;
-      return { x, y: y + band / 2, kind: "round", x0: size, y0: size, depth, chamfer: entry(g) };
+      return { x, y: y + band / 2, kind: hex ? "hex" : "round", x0: size, y0: size, depth, chamfer: entry(g) };
     });
     const texts = labelled
       ? placed.map(({ x, y, index }) => ({ text: names[index], x, y: y - items[index].d / 2 + SIZE_LABEL_CAP / 2, maxW: items[index].w, cap: SIZE_LABEL_CAP }))

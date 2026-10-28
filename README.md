@@ -17,7 +17,7 @@
 **Bins**
 - Any size from 1 × 1 to 10 × 10 units; height in 7 mm units or in mm.
 - Standard Gridfinity feet, optional stacking lip with a printable 45° support and rounded top edge.
-- Compartments in both directions, finger scoop, label shelf.
+- Compartments in both directions, finger scoop, label shelf with **engraved text** per compartment.
 - Wall, divider and floor thickness.
 - Optional **honeycomb walls** to save filament.
 - Magnet holes and M3 screw holes in every foot.
@@ -29,14 +29,16 @@
 - Lift-off lid with insert ring, printed as a second object.
 
 **Inserts**
-- Holes or slots that hold items upright: presets for 1/4" hex bits, router bits (6/8/12 mm shank), AA and AAA batteries, USB-A/USB-C sticks, SD and microSD cards, or your own sizes.
+- Holes or slots that hold items upright: presets for 1/4" hex bits, router bits (6/8/12 mm shank), Allen keys, screwdrivers, files, pens, AA, AAA and 18650 batteries, CR2032 coin cells, USB-A/USB-C sticks, SD and microSD cards, or your own sizes.
 - **Mix of items** in one insert (e.g. 4 USB sticks, 3 SD cards, 1 microSD), with the smallest fitting bin picked automatically.
-- **Drill sets**: one hole per size from a list such as `2-20` or `1-6/0.5 8 10`.
+- **Drill and Allen key sets**: one round or hexagonal hole per size from a list such as `2-20` or `1-6/0.5 8 10`, with the size engraved in front of each hole.
 - Spacing from the widest part of the item (e.g. a 20 mm router bit head) plus room for your fingers; adjustable play in the openings and a lead-in chamfer.
-- As a Gridfinity bin (1 × 1 to 10 × 10, automatic height, stacking lip, magnets) or as a loose block for a box.
+- As a Gridfinity bin (1 × 1 to 10 × 10, automatic height, stacking lip, magnets) or as a loose block for a box; the loose block can take its size from the box you set up.
 
 **General**
-- Compact form: the main settings first, everything else in collapsible sections.
+- Compact form: the main settings first, everything else in collapsible sections. Settings are kept per model while you switch.
+- **Colour accent**: the top millimetres (and engraved text) become a second part for filament 2, already assigned in the 3MF for Bambu Studio / Orca. Preview colours are adjustable.
+- Filament and print time estimate (PLA, 0.2 mm layers, 20 % infill) and the number of filament changes.
 - Live 3D preview on your print bed(s), or assembled; shareable links (all parameters live in the URL).
 - Parts are centred on the bed; anything that doesn't fit one bed is spread over several.
 - **3MF** export with one object per piece (Bambu Studio, Orca, PrusaSlicer), or **STL** (zipped when split).
@@ -113,3 +115,4 @@ Binfinity is MIT licensed, see [LICENSE](LICENSE).
 - [replicad](https://github.com/sgenoud/replicad) by Steve Genoud (MIT).
 - [OpenCascade Technology](https://dev.opencascade.org/) is distributed as WebAssembly under LGPL-2.1 with the OCCT exception (`replicad-opencascadejs`).
 - [three.js](https://threejs.org) (MIT), [fflate](https://github.com/101arrowz/fflate) (MIT).
+- [Inter](https://rsms.me/inter/) by Rasmus Andersson, SIL Open Font License 1.1 (`src/assets/fonts/OFL.txt`), for engraved text.

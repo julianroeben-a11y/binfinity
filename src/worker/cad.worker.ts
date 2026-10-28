@@ -4,7 +4,9 @@
 
 import opencascade from "replicad-opencascadejs";
 import wasmUrl from "replicad-opencascadejs/wasm?url";
-import { setOC, type Shape3D } from "replicad";
+import { measureArea, measureVolume, setOC, type Shape3D } from "replicad";
+import { colourChanges, estimate, INFILL } from "../models/estimate";
+import { TEXT_DEPTH } from "../models/text";
 import { buildBaseplate } from "../models/baseplate/build";
 import { buildBin } from "../models/bin/build";
 import { buildBox } from "../models/box/build";
@@ -71,6 +73,12 @@ function plateLayout(pieces: BuiltPiece[], params: Params) {
   return { offsets, plates: layout.plates.map(([x, y]): Plate => ({ x, y, w: bedX, d: bedY })), oversized: layout.oversized.length > 0 };
 }
 
+/** "25 min" or "2 h 05 min", rounded to 5 minutes. */
+function duration(seconds: number): string {
+  const min = Math.max(5, Math.round(seconds / 300) * 5);
+  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} min`;
+}
+
 function meshOf(shape: Shape3D, tolerance: number, angularTolerance: number): Mesh {
   const m = shape.mesh({ tolerance, angularTolerance });
   return weld(m.vertices, m.triangles);
@@ -103,10 +111,26 @@ async function handle(req: Request) {
       info.warnings.push({ key: "warn.largerThanBed", vars: { size: req.params.bedX as number } });
     }
     if (plates.plates.length > 1) info.facts.push({ key: "fact.plates", vars: { n: plates.plates.length } });
+    const withAccent = req.params.accent === true;
+    const changes = pieces.map((p) => colourChanges(withAccent, !!p.labels, TEXT_DEPTH));
     const split: Piece[] = pieces.map((p) => {
-      const { body, accent } = splitAccent(p, req.params.accent === true, req.params.accentHeight as number);
+      const { body, accent } = splitAccent(p, withAccent, req.params.accentHeight as number);
       return { ...p, shape: body, accent };
     });
+    const est = estimate(
+      split.map((p, i) => {
+        const parts = p.accent ? [p.shape, p.accent] : [p.shape];
+        return {
+          volume: parts.reduce((v, s) => v + measureVolume(s), 0),
+          area: parts.reduce((a, s) => a + measureArea(s), 0),
+          height: p.size[2],
+          changes: changes[i],
+        };
+      }),
+    );
+    info.facts.push({ key: "fact.estimate", vars: { g: Math.max(1, Math.round(est.grams)), time: duration(est.seconds), infill: INFILL * 100 } });
+    const totalChanges = changes.reduce((a, b) => a + b, 0);
+    if (totalChanges) info.facts.push({ key: "fact.colourChanges", vars: { n: totalChanges } });
     current = { model: req.model, pieces: split, plateOffsets: plates.offsets };
     post({ type: "progress", id: req.id, stage: "meshing" });
     const offsets = explodedOffsets(split);

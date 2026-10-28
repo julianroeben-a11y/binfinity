@@ -95,6 +95,23 @@ describe("buildInsert", () => {
     expect(small.info.warnings.some((w) => w.key === "warn.insertMissing")).toBe(true);
   }, 60_000);
 
+  it("builds every preset", () => {
+    for (const name of ["allen", "screwdriver", "file", "pen", "li18650", "cr2032"]) {
+      const { pieces } = buildInsert(params({ ...preset(name), preset: name, gridX: 3, gridY: 2 }));
+      expect(measureVolume(pieces[0].shape), name).toBeGreaterThan(0);
+    }
+  }, 120_000);
+
+  it("takes Allen keys across flats in hexagonal holes", () => {
+    const { pieces, info } = buildInsert(params({ ...preset("allen"), gridX: 3, gridY: 2 }));
+    expect(info.facts.find((f) => f.key === "fact.insertSet")!.vars).toMatchObject({ n: 9, from: 1.5, to: 10 });
+    expect(watertight(pieces[0].shape)).toBe(true);
+    // A hexagon across flats is larger than a circle of the same size.
+    const round = buildInsert(params({ ...preset("allen"), setShape: "round", sizeLabels: false, gridX: 3, gridY: 2 }));
+    const hex = buildInsert(params({ ...preset("allen"), sizeLabels: false, gridX: 3, gridY: 2 }));
+    expect(measureVolume(hex.pieces[0].shape)).toBeLessThan(measureVolume(round.pieces[0].shape));
+  }, 60_000);
+
   it("warns when the chosen height is too low", () => {
     const { info } = buildInsert(params({ ...preset("aa"), heightMode: "units", heightUnits: 2 }));
     expect(info.warnings.some((w) => w.key === "warn.insertShallow")).toBe(true);

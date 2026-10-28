@@ -16,9 +16,20 @@ export const itemPresets: Record<string, Params> = {
   shank6: { opening: "round", size: 6, holeDepth: 20, itemX: 20, gap: 8 },
   shank8: { opening: "round", size: 8, holeDepth: 20, itemX: 20, gap: 8 },
   shank12: { opening: "round", size: 12, holeDepth: 22, itemX: 20, gap: 8 },
-  drills: { opening: "set", sizes: "2-10", holeDepth: 20, gap: 4 },
+  drills: { opening: "set", setShape: "round", sizes: "2-10", holeDepth: 20, gap: 4 },
+  // L-keys stand on their long arm; the short one sticks out above the insert.
+  allen: { opening: "set", setShape: "hex", sizes: "1.5 2 2.5 3 4 5 6 8 10", holeDepth: 25, gap: 4 },
+  // Shaft down, the handle (up to about 32 mm) above the insert.
+  screwdriver: { opening: "round", size: 8, holeDepth: 30, itemX: 32, gap: 3 },
+  // Flat files with a round handle.
+  file: { opening: "slot", size: 22, slotWidth: 6, holeDepth: 35, itemX: 30, itemY: 30, gap: 3 },
+  pen: { opening: "round", size: 11, holeDepth: 30, itemX: 11, gap: 4 },
   aa: { opening: "round", size: 14.5, holeDepth: 20, itemX: 14.5, gap: 5 },
   aaa: { opening: "round", size: 10.5, holeDepth: 18, itemX: 10.5, gap: 5 },
+  // Protected cells are up to 18.6 mm wide.
+  li18650: { opening: "round", size: 18.6, holeDepth: 25, itemX: 18.6, gap: 5 },
+  // Coin cells stand upright, a bit more than half sunk in.
+  cr2032: { opening: "slot", size: 20, slotWidth: 3.2, holeDepth: 12, itemX: 20, itemY: 3.2, gap: 6 },
   usba: { opening: "slot", size: 12, slotWidth: 4.5, holeDepth: 11, itemX: 21, itemY: 10.5, gap: 6 },
   usbc: { opening: "slot", size: 8.4, slotWidth: 2.6, holeDepth: 7, itemX: 21, itemY: 10, gap: 6 },
   sd: { opening: "slot", size: 24, slotWidth: 2.1, holeDepth: 14, itemX: 24, itemY: 2.1, gap: 8 },
@@ -60,6 +71,7 @@ export const insertSchema: ModelSchema = {
         { key: "preset", label: "insert.preset", type: "select", default: "hexbit", options: [...Object.keys(presets), "custom"], presets },
         { key: "opening", label: "insert.opening", type: "select", default: "hex", options: ["round", "hex", "slot", "set", "mix"], advanced: true },
         { key: "sizes", label: "insert.sizes", type: "text", default: "2-10", maxLength: 200, placeholder: "2 3 4 5 6 8 10", visible: isSet },
+        { key: "setShape", label: "insert.setShape", type: "select", default: "round", options: ["round", "hex"], visible: isSet, advanced: true },
         { key: "sizeLabels", label: "insert.sizeLabels", type: "bool", default: true, visible: isSet },
         ...mixItems.map((k) => ({
           key: `count_${k}`,
