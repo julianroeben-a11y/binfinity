@@ -90,6 +90,11 @@ describe("buildDesk", () => {
     expect(z1).toBeLessThan(20 + 110 * slope);
   }, 60_000);
 
+  it("keeps the close USB + SD spacing in its inlay", () => {
+    const { pieces } = buildDesk(params({ cols: 1, rows: 1, width: 104, depth: 59, module1: "usbsd", surface: "smooth" }));
+    expect(pieces[1].name).toBe("desk_inlay_1_usbsd");
+  }, 60_000);
+
   it("rejects modules that get too small", () => {
     expect(() => buildDesk(params({ width: 60, cols: 4 }))).toThrow(ParamError);
   });
