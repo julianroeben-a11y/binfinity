@@ -48,30 +48,44 @@ export async function initUpdater(versionEl: HTMLElement, button: HTMLButtonElem
     button.textContent = t(key);
   };
 
-  button.addEventListener("click", async () => {
+  button.addEventListener("click", () => {
     button.disabled = true;
     button.textContent = t("update.running");
+    const started = Date.now();
+    let done = false;
+    const finish = (key: string) => {
+      if (done) return;
+      done = true;
+      fail(key);
+    };
+    // Watch for the new version from the start; the helper may take a while
+    // to answer, or never answer because the container is being replaced.
+    const poll = async () => {
+      if (done) return;
+      const now = await readConfig();
+      if (now && now.version !== config.version) {
+        done = true;
+        return location.reload();
+      }
+      if (Date.now() - started > 180_000) return finish("update.failed");
+      setTimeout(poll, 3000);
+    };
+    setTimeout(poll, 3000);
+
     // The helper answers once it is done. If the app container was replaced,
     // the request dies on the way (expected); if it answers, the container
     // was not replaced, so there was nothing newer to pull.
-    let answered = false;
-    try {
-      const res = await fetch("./api/update", { method: "POST" });
-      if (res.status === 404) return fail("update.noHelper");
-      if (res.status === 401 || res.status === 403) return fail("update.badToken");
-      if (res.status >= 500) return fail("update.unreachable");
-      answered = res.ok;
-    } catch {
-      // container restarted
-    }
-    const started = Date.now();
-    const poll = async () => {
-      const now = await readConfig();
-      if (now && now.version !== config.version) return location.reload();
-      if (answered && now) return fail(outdated ? "update.noImage" : "update.current");
-      if (Date.now() - started > 180_000) return fail("update.failed");
-      setTimeout(poll, 3000);
-    };
-    setTimeout(poll, answered ? 0 : 3000);
+    fetch("./api/update", { method: "POST" })
+      .then(async (res) => {
+        if (res.status === 404) return finish("update.noHelper");
+        if (res.status === 401 || res.status === 403) return finish("update.badToken");
+        if (res.status >= 500) return finish("update.unreachable");
+        if (!res.ok) return finish("update.failed");
+        const now = await readConfig();
+        if (now && now.version === config.version) finish(outdated ? "update.noImage" : "update.current");
+      })
+      .catch(() => {
+        // container restarted; the poll picks up the new version
+      });
   });
 }
