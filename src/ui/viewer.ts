@@ -70,7 +70,7 @@ export class Viewer {
       const shade = pieces.length > 1 && i % 2 ? 0.82 : 1;
       piece.add(this.mesh(p, this.colors.body, shade, "body"));
       if (p.accent) piece.add(this.mesh(p.accent, this.colors.accent, shade, "accent"));
-      piece.position.set(...(this.mode === "plates" ? p.onPlate : p.assembled));
+      this.place(piece, p);
       piece.name = p.name;
       this.group.add(piece);
     });
@@ -103,13 +103,20 @@ export class Viewer {
     });
   }
 
+  /** Put a piece on its bed, or where it goes in the assembled model (some parts tilted, like desk inlays). */
+  private place(obj: THREE.Object3D, p: PreviewPiece) {
+    const plates = this.mode === "plates";
+    obj.position.set(...(plates ? p.onPlate : p.assembled));
+    obj.rotation.x = plates ? 0 : (p.assembledRotX ?? 0);
+  }
+
   /** Switch between pieces laid out on print beds and the assembled model. */
   setMode(mode: "plates" | "assembled") {
     if (mode === this.mode) return;
     this.mode = mode;
     this.group.children.forEach((child, i) => {
       const p = this.pieces[i];
-      if (p) child.position.set(...(mode === "plates" ? p.onPlate : p.assembled));
+      if (p) this.place(child, p);
     });
     this.drawBeds();
     this.frame();

@@ -6,13 +6,18 @@
 
 ## Features
 
-The app has three areas: **Drawer** (plan a whole drawer), **Gridfinity** (baseplates, bins, inserts) and **Organizer** (boxes in any size).
+The app has three areas: **Drawer** (plan a whole drawer), **Gridfinity** (baseplates, bins, inserts) and **Organizer** (boxes in any size and a desk organizer).
 
 **Drawer planner**
 - Enter the inside size of a drawer; the baseplate is fitted and split for your print bed.
 - Add bins and inserts, drag them into place on the top view and edit each one; bins get the height that still fits the drawer.
 - 3D view of the filled drawer, warnings for parts that overlap or are taller than the drawer, and one export with every part.
 - Parts are cached while you work, so changing one part only rebuilds that one.
+
+**Desk organizer**
+- A block whose top slopes up towards the back, with 1 to 8 module pockets (up to 4 × 2) and optional vertical ribs.
+- Each module takes a separately printed, swappable inlay: pen holes, an open pocket (scissors), card slots, USB sticks, bits or large holes; or it stays an empty pocket.
+- Size, slope, pocket depth, rim and inlay play are adjustable; the assembled view shows the inlays in place.
 
 **Baseplates**
 - Size by grid units or by **drawer size**: Binfinity fits as many cells as possible and fills the rest with a solid border (centered or aligned to a side).
