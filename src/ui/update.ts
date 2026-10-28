@@ -4,7 +4,24 @@ const REPO = "julianroeben-a11y/binfinity";
 
 interface RuntimeConfig {
   version: string;
+  build?: string;
   selfUpdate: boolean;
+}
+
+/** "1.15.0" → "1.15"; the patch number only shows when it is set. */
+export function shortVersion(v: string): string {
+  return v.replace(/\.0$/, "");
+}
+
+/** Whether release `a` is newer than `b` (both "major.minor.patch"). */
+export function isNewer(a: string, b: string): boolean {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d > 0;
+  }
+  return false;
 }
 
 async function readConfig(): Promise<RuntimeConfig | null> {
@@ -16,11 +33,11 @@ async function readConfig(): Promise<RuntimeConfig | null> {
   }
 }
 
-/** Newest commit on main, or null when GitHub is unreachable or rate-limited. */
-async function latestCommit(): Promise<string | null> {
+/** Release number on main, or null when GitHub is unreachable. */
+async function latestVersion(): Promise<string | null> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/commits/main`, { headers: { Accept: "application/vnd.github.sha" } });
-    return res.ok ? (await res.text()).trim().slice(0, 7) : null;
+    const res = await fetch(`https://raw.githubusercontent.com/${REPO}/main/package.json`, { cache: "no-store" });
+    return res.ok ? String(((await res.json()) as { version?: string }).version ?? "") || null : null;
   } catch {
     return null;
   }
@@ -32,18 +49,19 @@ async function latestCommit(): Promise<string | null> {
  * come back with a new version, then reloads the page.
  */
 export async function initUpdater(versionEl: HTMLAnchorElement, button: HTMLButtonElement) {
-  versionEl.textContent = __APP_VERSION__ === "dev" ? "dev" : `v${__APP_VERSION__}`;
-  // The version links to the changes it contains.
-  versionEl.href = __APP_VERSION__ === "dev" ? `https://github.com/${REPO}` : `https://github.com/${REPO}/commits/${__APP_VERSION__}`;
+  const dev = __APP_BUILD__ === "dev";
+  versionEl.textContent = `v${shortVersion(__APP_VERSION__)}${dev ? " dev" : ""}`;
+  // The version links to its release notes.
+  versionEl.href = dev ? `https://github.com/${REPO}` : `https://github.com/${REPO}/releases/tag/v${__APP_VERSION__}`;
   const config = await readConfig();
   if (!config?.selfUpdate) return;
 
-  const latest = await latestCommit();
-  const outdated = latest !== null && latest !== config.version;
+  const latest = await latestVersion();
+  const outdated = latest !== null && isNewer(latest, config.version);
   button.hidden = false;
   button.textContent = t(outdated ? "update.available" : "update.check");
   button.classList.toggle("primary", outdated);
-  if (outdated) versionEl.title = t("update.newer", { version: latest });
+  if (outdated) versionEl.title = t("update.newer", { version: `v${shortVersion(latest)}` });
 
   const fail = (key: string) => {
     button.disabled = false;
@@ -65,7 +83,7 @@ export async function initUpdater(versionEl: HTMLAnchorElement, button: HTMLButt
     const poll = async () => {
       if (done) return;
       const now = await readConfig();
-      if (now && now.version !== config.version) {
+      if (now && (now.version !== config.version || now.build !== config.build)) {
         done = true;
         return location.reload();
       }
@@ -84,7 +102,7 @@ export async function initUpdater(versionEl: HTMLAnchorElement, button: HTMLButt
         if (res.status >= 500) return finish("update.unreachable");
         if (!res.ok) return finish("update.failed");
         const now = await readConfig();
-        if (now && now.version === config.version) finish(outdated ? "update.noImage" : "update.current");
+        if (now && now.version === config.version && now.build === config.build) finish(outdated ? "update.noImage" : "update.current");
       })
       .catch(() => {
         // container restarted; the poll picks up the new version

@@ -15,9 +15,11 @@ The app has three areas: **Drawer** (plan a whole drawer), **Gridfinity** (basep
 - Parts are cached while you work, so changing one part only rebuilds that one.
 
 **Desk organizer**
-- A block whose top slopes up towards the back, with 1 to 8 module pockets (up to 4 × 2) and optional vertical ribs.
-- Each module takes a separately printed, swappable inlay: pen holes, an open pocket (scissors), card slots, USB sticks, bits or large holes; or it stays an empty pocket.
-- Size, slope, pocket depth, rim and inlay play are adjustable; the assembled view shows the inlays in place.
+- A block whose top slopes up towards the back, with 1 to 8 upright module pockets (up to 4 × 2). Pens and open pockets go as deep as the block allows (70 mm by default), small items only as deep as they need.
+- Each module takes a separately printed, swappable inlay with a sloped top flush with the block: pen holes (wide enough for ballpoints), an open pocket (scissors), card slots, USB sticks, 2 × 2 USB sticks plus a row of SD cards, bits or large holes; or it stays an empty pocket.
+- Patterns on the sides: upright ribs, level grooves, honeycomb, diamonds or smooth.
+- Hollow under the small modules to save filament. Hollows, patterns and pockets all print without supports (downward faces are at least 45° steep).
+- Size, slope, depth, rim and inlay play are adjustable; the assembled view shows the inlays in place.
 
 **Baseplates**
 - Size by grid units or by **drawer size**: Binfinity fits as many cells as possible and fills the rest with a solid border (centered or aligned to a side).
@@ -117,6 +119,10 @@ Project layout:
 | `src/worker/` | Web worker running OpenCascade, and its client |
 | `src/export/` | Mesh welding, STL and 3MF writers |
 | `src/ui/` | Form renderer and three.js viewer |
+
+### Versions and releases
+
+Releases are numbered `1.15`, `1.16`, and so on. Every pull request that changes the app raises the minor number in `package.json` (`npm version minor --no-git-tag-version`). When it reaches `main`, CI tags the commit `v1.16.0`, publishes a GitHub release with the merged changes, and pushes the Docker image as `latest`, `1.16.0` and `1.16`. The app shows the number in the top bar and compares it with `main` to offer updates.
 
 Adding a model means writing a schema, a build function, registering both (in `src/main.ts` and `src/worker/cad.worker.ts`) and adding translations in `src/i18n.ts`.
 

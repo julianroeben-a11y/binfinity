@@ -122,6 +122,37 @@ describe("buildInsert", () => {
   });
 });
 
+describe("buildInsert USB + SD", () => {
+  it("puts four USB sticks and a row of SD cards side by side when there is room", () => {
+    const { pieces, info } = buildInsert(params({ ...preset("usbsd"), form: "loose", width: 92, length: 47 }));
+    const fact = info.facts.find((f) => f.key === "fact.insertCombo")!;
+    expect(fact.vars).toEqual({ usb: 4, sd: 4 });
+    expect(info.warnings).toEqual([]);
+    expect(watertight(pieces[0].shape)).toBe(true);
+  }, 60_000);
+
+  it("puts the SD cards in front of the USB sticks in a narrow insert", () => {
+    const { info } = buildInsert(params({ ...preset("usbsd"), form: "loose", width: 55, length: 70 }));
+    expect(info.facts.find((f) => f.key === "fact.insertCombo")!.vars).toEqual({ usb: 4, sd: 5 });
+  }, 60_000);
+});
+
+describe("buildInsert with a sloped top", () => {
+  it("rises towards the back and keeps the openings open", () => {
+    const slope = Math.tan((20 * Math.PI) / 180);
+    const flat = buildInsert(params({ ...preset("pen"), form: "loose", width: 60, length: 40, holeDepth: 30, floor: 2 }));
+    const { pieces } = buildInsert({ ...params({ ...preset("pen"), form: "loose", width: 60, length: 40, holeDepth: 30, floor: 2 }), topSlope: slope });
+    const [[, y0, z0], [, y1, z1]] = pieces[0].shape.boundingBox.bounds;
+    expect(z0).toBeCloseTo(0, 2);
+    expect(z1).toBeCloseTo(32 + (y1 - y0) * slope, 0);
+    expect(watertight(pieces[0].shape)).toBe(true);
+    // The openings go equally deep from the top above them, so the sloped
+    // insert has more material than the flat one only in the added wedge.
+    const wedge = 60 * 40 * 40 * slope * 0.5;
+    expect(measureVolume(pieces[0].shape) - measureVolume(flat.pieces[0].shape)).toBeLessThan(wedge);
+  }, 60_000);
+});
+
 describe("buildInsert mix", () => {
   it("fits every item into the smallest bin", () => {
     const { pieces, info } = buildInsert(params({ preset: "mix", opening: "mix" }));

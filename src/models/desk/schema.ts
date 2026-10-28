@@ -4,7 +4,11 @@ import type { Field, ModelSchema, Params } from "../types";
 /** Most module slots in the top. */
 export const MAX_MODULES = 8;
 /** What a module slot holds: an inlay printed separately, or nothing (an open pocket). */
-export const moduleKinds = ["pens", "pocket", "cards", "usb", "bits", "holes", "empty"];
+export const moduleKinds = ["pens", "pocket", "cards", "usb", "usbsd", "bits", "holes", "empty"];
+/** Kinds that go as deep as the organizer allows; the others only as deep as their items need. */
+export const deepKinds = ["pens", "pocket", "holes", "empty"];
+/** Patterns on the outside walls. */
+export const surfaces = ["smooth", "ribs", "grooves", "hex", "diamonds"];
 const moduleDefaults = ["pens", "pocket", "cards", "holes", "pens", "pocket", "cards", "holes"];
 
 const used = (i: number) => (p: Params) => i < Math.round(p.cols as number) * Math.round(p.rows as number);
@@ -38,12 +42,13 @@ export const deskSchema: ModelSchema = {
     {
       title: "group.shape",
       fields: [
-        { key: "pocketDepth", label: "desk.pocketDepth", type: "number", default: 40, min: 10, max: 150, step: 1, unit: "mm" },
+        { key: "pocketDepth", label: "desk.pocketDepth", type: "number", default: 70, min: 20, max: 200, step: 1, unit: "mm" },
         { key: "rim", label: "desk.rim", type: "number", default: 6, min: 3, max: 30, step: 0.5, unit: "mm" },
         { key: "web", label: "desk.web", type: "number", default: 4, min: 2, max: 20, step: 0.5, unit: "mm" },
         { key: "cornerRadius", label: "box.cornerRadius", type: "number", default: 8, min: 1, max: 40, step: 0.5, unit: "mm" },
-        { key: "ribs", label: "desk.ribs", type: "bool", default: true },
-        { key: "ribPitch", label: "desk.ribPitch", type: "number", default: 6, min: 3, max: 20, step: 0.5, unit: "mm", visible: (p) => p.ribs === true },
+        { key: "surface", label: "desk.surface", type: "select", default: "ribs", options: surfaces },
+        { key: "ribPitch", label: "desk.ribPitch", type: "number", default: 6, min: 3, max: 20, step: 0.5, unit: "mm", visible: (p) => p.surface !== "smooth" },
+        { key: "hollow", label: "desk.hollow", type: "bool", default: true },
         { key: "clearance", label: "desk.clearance", type: "number", default: 0.3, min: 0, max: 1.5, step: 0.05, unit: "mm" },
       ],
     },
