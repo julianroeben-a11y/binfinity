@@ -78,7 +78,7 @@ export const insertSchema: ModelSchema = {
         { key: "length", label: "insert.length", type: "number", default: 60, min: 10, max: 1000, step: 0.5, unit: "mm", visible: (p) => !isBin(p) },
         { key: "heightMode", label: "insert.heightMode", type: "select", default: "auto", options: ["auto", "units"], visible: isBin, advanced: true },
         { key: "heightUnits", label: "bin.heightUnits", type: "number", default: 3, min: 2, max: 30, step: 1, visible: (p) => isBin(p) && p.heightMode === "units", advanced: true },
-        { key: "floor", label: "bin.floor", type: "number", default: 1.2, min: 0.6, max: 10, step: 0.1, unit: "mm", advanced: true },
+        { key: "floor", label: "bin.floor", type: "number", default: 1.5, min: 0.6, max: 10, step: 0.1, unit: "mm", advanced: true },
         { key: "lip", label: "bin.lip", type: "bool", default: true, visible: isBin, advanced: true },
       ],
     },

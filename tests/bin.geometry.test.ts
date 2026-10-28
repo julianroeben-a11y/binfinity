@@ -56,8 +56,9 @@ describe("buildBin", () => {
   }, 60_000);
 
   it("rounds the top edges of walls and dividers", () => {
+    // Thin walls, so the rounded top stands out against the slice below.
     for (const over of [{ lip: false, divX: 3, divY: 2 }, { lip: true }]) {
-      const { pieces } = buildBin(params(over));
+      const { pieces } = buildBin(params({ ...over, wall: 1.2 }));
       const shape = pieces[0].shape;
       const top = shape.boundingBox.bounds[1][2];
       // With rounded edges the very top is much narrower than 1 mm below it.
@@ -67,7 +68,7 @@ describe("buildBin", () => {
   }, 120_000);
 
   it("rounds the divider tops below the stacking lip", () => {
-    const plain = buildBin(params({ lip: true, divX: 3 })).pieces[0].shape;
+    const plain = buildBin(params({ lip: true, divX: 3, wall: 1.2 })).pieces[0].shape;
     // Dividers end 0.5 mm under the lip support (21 − 1.4 − 0.5 = 19.1 mm) in a half-round.
     const near = areaBelow(plain, 19.09);
     const lower = areaBelow(plain, 18);

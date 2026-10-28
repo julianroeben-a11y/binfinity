@@ -73,7 +73,7 @@ describe("buildInsert", () => {
     expect(count(info)).toBeGreaterThan(5);
     const [min, max] = pieces[0].shape.boundingBox.bounds;
     expect(max[0] - min[0]).toBeCloseTo(80, 1);
-    expect(max[2] - min[2]).toBeCloseTo(1.2 + 14, 1);
+    expect(max[2] - min[2]).toBeCloseTo(1.5 + 14, 1);
     expect(watertight(pieces[0].shape)).toBe(true);
   }, 60_000);
 
