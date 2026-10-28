@@ -273,6 +273,7 @@ const planner = new Planner($("#plan-area"), {
 function renderPlan() {
   const show = state.model === "drawer" && state.planView === "plan";
   $("#plan").hidden = !show;
+  document.body.classList.toggle("plan-mode", show);
   $("#view-toggle").hidden = show;
   for (const b of document.querySelectorAll<HTMLButtonElement>("[data-plan]")) b.setAttribute("aria-pressed", String(b.dataset.plan === state.planView));
   if (state.model !== "drawer") return;

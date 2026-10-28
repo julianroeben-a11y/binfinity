@@ -186,6 +186,8 @@ body.area-drawer .layout { grid-template-columns: 350px 1fr; }
 button.danger { color: var(--danger); }
 .plan { position: absolute; inset: 0; padding: 64px 24px 110px; display: flex; flex-direction: column; gap: 12px; background: var(--stage); }
 .plan[hidden] { display: none; }
+/* Colours and camera only matter for the 3D view. */
+body.plan-mode .overlay-top .swatch, body.plan-mode #reset-view { display: none; }
 .plan-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .plan-note { color: var(--muted); font-size: 13px; }
 .plan-area { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
