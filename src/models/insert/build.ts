@@ -235,8 +235,8 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
   };
 }
 
-/** Room between the USB block and the SD row. */
-const COMBO_GAP = 8;
+/** Room between the USB block and the SD row, so fingers fit between the sticks and the cards. */
+const COMBO_GAP = 14;
 
 /**
  * Four USB sticks in a 2 × 2 block and as many SD cards as fit in one row:
