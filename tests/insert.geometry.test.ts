@@ -96,3 +96,29 @@ describe("buildInsert", () => {
     expect(() => buildInsert(params({ form: "loose", width: 10, length: 10, ...preset("shank12") }))).toThrow(ParamError);
   });
 });
+
+describe("buildInsert mix", () => {
+  it("fits every item into the smallest bin", () => {
+    const { pieces, info } = buildInsert(params({ preset: "mix", opening: "mix" }));
+    expect(info.facts.find((f) => f.key === "fact.insertMix")!.vars).toMatchObject({ n: 8, kinds: 3 });
+    expect(info.warnings).toEqual([]);
+    expect(pieces[0].name.startsWith("insert_")).toBe(true);
+    expect(watertight(pieces[0].shape)).toBe(true);
+    // One unit less in either direction would not take everything.
+    const [gx, gy] = pieces[0].name.split("_")[1].split("x").map(Number);
+    for (const [x, y] of [[gx - 1, gy], [gx, gy - 1]]) {
+      if (x < 1 || y < 1) continue;
+      const smaller = buildInsert(params({ opening: "mix", autoSize: false, gridX: x, gridY: y }));
+      expect(smaller.info.warnings.some((w) => w.key === "warn.insertMixMissing")).toBe(true);
+    }
+  }, 120_000);
+
+  it("reports items that do not fit a fixed size", () => {
+    const { info } = buildInsert(params({ opening: "mix", autoSize: false, gridX: 1, gridY: 1, count_aa: 10 }));
+    expect(info.warnings.some((w) => w.key === "warn.insertMixMissing")).toBe(true);
+  }, 60_000);
+
+  it("asks for items when all counts are zero", () => {
+    expect(() => buildInsert(params({ opening: "mix", count_usba: 0, count_sd: 0, count_microsd: 0 }))).toThrow(ParamError);
+  });
+});

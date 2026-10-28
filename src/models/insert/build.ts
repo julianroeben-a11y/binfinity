@@ -7,7 +7,8 @@ import { BIN_CLEARANCE, BIN_FOOT_HEIGHT, BIN_RADIUS, GRID, HEIGHT_UNIT, LIP_HEIG
 import { planarLoft } from "../solids";
 import type { BuiltPiece } from "../build-types";
 import { ParamError, type BuildInfo, type Params } from "../types";
-import { layoutItems, layoutSizes, parseSizes } from "./layout";
+import { layoutItems, layoutShelves, layoutSizes, parseSizes } from "./layout";
+import { itemPresets, mixItems } from "./schema";
 
 const EPS = 0.01;
 /** Material kept between neighbouring openings at least. */
@@ -64,39 +65,100 @@ function openingTool(kind: string, x: number, y: number, z0: number, top: number
 interface Opening {
   x: number;
   y: number;
+  kind: string;
   /** Size of the opening along X and Y. */
   x0: number;
   y0: number;
+  depth: number;
   chamfer: number;
 }
 
+interface ItemSpec {
+  kind: string;
+  /** Opening along X and Y (slots with their long side along X). */
+  ox: number;
+  oy: number;
+  /** Room the item takes along X and Y. */
+  footX: number;
+  footY: number;
+  gap: number;
+  depth: number;
+}
+
+/** Opening and room of one kind of item, from the item fields (or a preset). */
+function itemSpec(v: Params, clearance: number): ItemSpec {
+  const kind = v.opening as string;
+  let ox = (v.size as number) + clearance;
+  let oy = kind === "slot" ? (v.slotWidth as number) + clearance : kind === "hex" ? (ox * 2) / Math.sqrt(3) : ox;
+  if (kind === "slot" && oy > ox) [ox, oy] = [oy, ox];
+  const item = v.itemX as number;
+  return {
+    kind,
+    ox,
+    oy,
+    footX: Math.max(ox, item + clearance),
+    footY: Math.max(oy, (kind === "slot" ? (v.itemY as number) : item) + clearance),
+    gap: v.gap as number,
+    depth: v.holeDepth as number,
+  };
+}
+
+const r2 = (n: number) => Math.round(n * 10) / 10;
+const entry = (gap: number) => Math.max(0, Math.min(ENTRY, (gap - WEB) / 2));
+
+interface Plan {
+  holes: Opening[];
+  /** Deepest opening wanted. */
+  depth: number;
+  warnings: BuildInfo["warnings"];
+  facts: (depth: number) => BuildInfo["facts"];
+}
+
 /** Where the openings go inside an area of `ax` × `ay`, centred on the origin. */
-function planOpenings(p: Params, ax: number, ay: number) {
+function planOpenings(p: Params, ax: number, ay: number): Plan {
   const kind = p.opening as string;
   const clearance = p.clearance as number;
   const gap = p.gap as number;
-  const r2 = (n: number) => Math.round(n * 10) / 10;
+  const depth = p.holeDepth as number;
 
   if (kind === "set") {
     // Different sizes: each hole is as wide as its item, neighbours keep the gap.
     const g = Math.max(gap, WEB);
-    const chamfer = Math.max(0, Math.min(ENTRY, (g - WEB) / 2));
     const sizes = parseSizes(String(p.sizes), 0.5, 100);
     const { items, missing } = layoutSizes(ax, ay, sizes.map((s) => s + clearance), g);
-    const holes: Opening[] = items.map((it) => ({ x: it.x, y: it.y, x0: it.size, y0: it.size, chamfer }));
-    const facts = (depth: number): BuildInfo["facts"] =>
-      holes.length ? [{ key: "fact.insertSet", vars: { n: holes.length, from: r2(sizes[0]), to: r2(sizes[holes.length - 1]), d: r2(depth) } }] : [];
-    return { holes, missing: missing.map((m) => r2(m - clearance)), facts };
+    const holes = items.map((it) => ({ x: it.x, y: it.y, kind: "round", x0: it.size, y0: it.size, depth, chamfer: entry(g) }));
+    return {
+      holes,
+      depth,
+      warnings: missing.length ? [{ key: "warn.insertMissing", vars: { sizes: missing.map((m) => r2(m - clearance)).join(", ") } }] : [],
+      facts: (d) => (holes.length ? [{ key: "fact.insertSet", vars: { n: holes.length, from: r2(sizes[0]), to: r2(sizes[holes.length - 1]), d: r2(d) } }] : []),
+    };
   }
 
-  // Opening and the room each item takes, along X and Y.
-  let ox = (p.size as number) + clearance;
-  let oy = kind === "slot" ? (p.slotWidth as number) + clearance : kind === "hex" ? (ox * 2) / Math.sqrt(3) : ox;
-  if (kind === "slot" && oy > ox) [ox, oy] = [oy, ox];
+  if (kind === "mix") {
+    // Several kinds of items. Slots stand with their thin side along X, so a
+    // row of them looks like a card file; kinds with deep rooms come first.
+    const kinds = mixItems
+      .map((k) => ({ spec: itemSpec(itemPresets[k], clearance), n: Math.round(p[`count_${k}`] as number) }))
+      .filter((k) => k.n > 0)
+      .map(({ spec, n }) => ({ n, spec: spec.kind === "slot" ? { ...spec, ox: spec.oy, oy: spec.ox, footX: spec.footY, footY: spec.footX } : spec }))
+      .sort((a, b) => b.spec.footY - a.spec.footY);
+    const specs = kinds.flatMap(({ spec, n }) => Array<ItemSpec>(n).fill(spec));
+    const { placed, missing } = layoutShelves(ax, ay, specs.map((s) => ({ w: s.footX, d: s.footY, gap: Math.max(s.gap, WEB) })));
+    const holes = placed.map(({ x, y, index }) => {
+      const s = specs[index];
+      return { x, y, kind: s.kind, x0: s.ox, y0: s.oy, depth: s.depth, chamfer: entry(Math.max(s.gap, WEB)) };
+    });
+    return {
+      holes,
+      depth: Math.max(0, ...specs.map((s) => s.depth)),
+      warnings: missing.length ? [{ key: "warn.insertMixMissing", vars: { n: missing.length } }] : [],
+      facts: () => [{ key: "fact.insertMix", vars: { n: holes.length, kinds: kinds.length } }],
+    };
+  }
+
+  const { ox, oy, footX, footY } = itemSpec(p, clearance);
   // Items keep `gap` between them, the openings at least a web of material.
-  const item = p.itemX as number;
-  const footX = Math.max(ox, item + clearance);
-  const footY = Math.max(oy, (kind === "slot" ? (p.itemY as number) : item) + clearance);
   const gapX = Math.max(gap, ox + WEB - footX);
   const gapY = Math.max(gap, oy + WEB - footY);
 
@@ -116,15 +178,24 @@ function planOpenings(p: Params, ax: number, ay: number) {
   // The chamfer is kept smaller than the web, so the tools never touch.
   const across = stagger ? Math.max(lx, ly) : lx;
   const chamfer = Math.max(0, Math.min(ENTRY, (px - across - WEB) / 2, stagger ? Infinity : (py - ly - WEB) / 2));
-  const holes: Opening[] = layout.centres.map(([x, y]) => ({ x, y, x0: lx, y0: ly, chamfer }));
-  const facts = (depth: number): BuildInfo["facts"] => [
-    { key: "fact.insertItems", vars: { n: holes.length, x: r2(px), y: r2(py) } },
-    kind === "slot"
-      ? { key: "fact.insertSlot", vars: { x: r2(ox), y: r2(oy), d: r2(depth) } }
-      : { key: "fact.insertHole", vars: { x: r2(ox), d: r2(depth) } },
-  ];
-  return { holes, missing: [] as number[], facts };
+  const holes = layout.centres.map(([x, y]) => ({ x, y, kind, x0: lx, y0: ly, depth, chamfer }));
+  return {
+    holes,
+    depth,
+    warnings: [],
+    facts: (d): BuildInfo["facts"] => [
+      { key: "fact.insertItems", vars: { n: holes.length, x: r2(px), y: r2(py) } },
+      kind === "slot"
+        ? { key: "fact.insertSlot", vars: { x: r2(ox), y: r2(oy), d: r2(d) } }
+        : { key: "fact.insertHole", vars: { x: r2(ox), d: r2(d) } },
+    ],
+  };
 }
+
+/** Grid sizes from small to large, square-ish first. */
+const GRID_SIZES = Array.from({ length: 100 }, (_, i): [number, number] => [(i % 10) + 1, Math.floor(i / 10) + 1]).sort(
+  ([ax, ay], [bx, by]) => ax * ay - bx * by || Math.abs(ax - ay) - Math.abs(bx - by) || ay - by,
+);
 
 export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   const kind = p.opening as string;
@@ -133,29 +204,35 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
   const warnings: BuildInfo["warnings"] = [];
 
   // Outer size, and the free area the items have to stay inside.
+  const binArea = (gx: number, gy: number) => {
+    const w = gx * GRID - BIN_CLEARANCE;
+    const d = gy * GRID - BIN_CLEARANCE;
+    // Items stick out above the block, so they must clear the stacking lip.
+    const inset = (p.lip === true ? LIP_INSET : 0) + EDGE;
+    return { w, d, plan: planOpenings(p, w - 2 * inset, d - 2 * inset) };
+  };
+  let gx = Math.round(p.gridX as number);
+  let gy = Math.round(p.gridY as number);
   let w: number;
   let d: number;
-  let inset: number;
-  const gx = Math.round(p.gridX as number);
-  const gy = Math.round(p.gridY as number);
+  let plan: Plan;
   if (isBin) {
-    w = gx * GRID - BIN_CLEARANCE;
-    d = gy * GRID - BIN_CLEARANCE;
-    // Items stick out above the block, so they must clear the stacking lip.
-    inset = (p.lip === true ? LIP_INSET : 0) + EDGE;
+    if (kind === "mix" && p.autoSize === true) {
+      // Smallest bin that takes everything, else the largest one.
+      [gx, gy] = GRID_SIZES.find(([x, y]) => !binArea(x, y).plan.warnings.length) ?? [10, 10];
+    }
+    ({ w, d, plan } = binArea(gx, gy));
   } else {
     w = p.width as number;
     d = p.length as number;
-    inset = EDGE;
+    plan = planOpenings(p, w - 2 * EDGE, d - 2 * EDGE);
   }
-
-  const plan = planOpenings(p, w - 2 * inset, d - 2 * inset);
-  if (!plan.holes.length) throw new ParamError({ key: "err.insertNoFit" });
-  if (plan.missing.length) warnings.push({ key: "warn.insertMissing", vars: { sizes: plan.missing.join(", ") } });
+  if (!plan.holes.length) throw new ParamError({ key: kind === "mix" && plan.depth === 0 ? "err.insertEmpty" : "err.insertNoFit" });
+  warnings.push(...plan.warnings);
 
   // Height: the openings go down from the top face, the floor stays below.
   const base = isBin ? BIN_FOOT_HEIGHT : 0;
-  let holeDepth = p.holeDepth as number;
+  let holeDepth = plan.depth;
   let surface: number;
   let unitsLabel = "";
   if (isBin) {
@@ -199,13 +276,13 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
     shape = roundEdgesAt(shape, top, TOP_ROUND);
   }
 
-  // The openings, one tool per size.
+  // The openings, one tool per kind and size.
   const protos = new Map<string, Shape3D>();
   const tools = plan.holes.map((h) => {
-    const key = `${h.x0}/${h.y0}/${h.chamfer}`;
+    const key = `${h.kind}/${h.x0}/${h.y0}/${h.depth}/${h.chamfer}`;
     let proto = protos.get(key);
     if (!proto) {
-      proto = openingTool(kind === "set" ? "round" : kind, h.x0, h.y0, surface - holeDepth, surface, h.chamfer);
+      proto = openingTool(h.kind, h.x0, h.y0, surface - Math.min(h.depth, holeDepth), surface, h.chamfer);
       protos.set(key, proto);
     }
     return proto.clone().translate(h.x, h.y, 0);
@@ -216,7 +293,6 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
   // Corner at the origin, like bins and boxes.
   shape = shape.translate(w / 2, d / 2, 0);
 
-  const r2 = (n: number) => Math.round(n * 10) / 10;
   const facts: BuildInfo["facts"] = [{ key: "fact.size", vars: { x: r2(w), y: r2(d), z: r2(top) } }, ...plan.facts(holeDepth)];
   const name = isBin ? `insert_${gx}x${gy}x${unitsLabel}` : `insert_${r2(w)}x${r2(d)}`;
   return {

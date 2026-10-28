@@ -242,27 +242,6 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   const compRadius = Math.max(0.5, Math.min(BIN_RADIUS - wall, cw / 2 - 0.01, cd / 2 - 0.01));
   const labelTop = flared ? zDiv - divider / 2 - 0.2 : lip ? cavityTop : cavityTop - LABEL_DROP;
 
-  // Honeycomb openings in the outer walls, cut while the body is still solid.
-  // They stay clear of the floor, scoop, label shelf, rim and dividers.
-  let honeycombCount = 0;
-  if (p.honeycomb === true) {
-    const web = HONEYCOMB_WEB;
-    const { tool, count } = honeycombTool({
-      width: w,
-      depth: d,
-      wall,
-      z0: floorZ + web + scoop,
-      z1: Math.min(lip ? zDiv : top, labelDepth > 0 ? labelTop - labelDepth : Infinity) - web - 0.5,
-      cell: p.honeycombSize as number,
-      cornerMargin: Math.max(BIN_RADIUS, wall + compRadius) + web,
-      dividersX: Array.from({ length: divX - 1 }, (_, i) => -innerW / 2 + (i + 1) * cw + (i + 0.5) * divider),
-      dividersY: Array.from({ length: divY - 1 }, (_, i) => -innerD / 2 + (i + 1) * cd + (i + 0.5) * divider),
-      dividerMargin: divider / 2 + compRadius + web,
-    });
-    if (tool) shape = shape.cut(tool);
-    honeycombCount = count;
-  }
-
   // The lip goes first and its ridge is rounded while the shape is still
   // simple; that is several times faster than doing it after the compartments.
   if (lip) {
@@ -301,6 +280,28 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
 
   // Without a lip, round the wall and divider tops.
   if (!lip) shape = roundEdgesAt(shape, top, Math.min(EDGE_ROUND, wall / 2 - 0.1, divider / 2 - 0.1));
+
+  // Honeycomb openings in the outer walls. They come last: the lip cut and
+  // the roundings get many times slower on a perforated body. They stay
+  // clear of the floor, scoop, label shelf, rim and dividers.
+  let honeycombCount = 0;
+  if (p.honeycomb === true) {
+    const web = HONEYCOMB_WEB;
+    const { tool, count } = honeycombTool({
+      width: w,
+      depth: d,
+      wall,
+      z0: floorZ + web + scoop,
+      z1: Math.min(lip ? zDiv : top, labelDepth > 0 ? labelTop - labelDepth : Infinity) - web - 0.5,
+      cell: p.honeycombSize as number,
+      cornerMargin: Math.max(BIN_RADIUS, wall + compRadius) + web,
+      dividersX: Array.from({ length: divX - 1 }, (_, i) => -innerW / 2 + (i + 1) * cw + (i + 0.5) * divider),
+      dividersY: Array.from({ length: divY - 1 }, (_, i) => -innerD / 2 + (i + 1) * cd + (i + 0.5) * divider),
+      dividerMargin: divider / 2 + compRadius + web,
+    });
+    if (tool) shape = shape.cut(tool);
+    honeycombCount = count;
+  }
 
   const holes = footHoles(p, cellCenters);
   if (holes) shape = shape.cut(holes);

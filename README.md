@@ -30,11 +30,13 @@
 
 **Inserts**
 - Holes or slots that hold items upright: presets for 1/4" hex bits, router bits (6/8/12 mm shank), AA and AAA batteries, USB-A/USB-C sticks, SD and microSD cards, or your own sizes.
+- **Mix of items** in one insert (e.g. 4 USB sticks, 3 SD cards, 1 microSD), with the smallest fitting bin picked automatically.
 - **Drill sets**: one hole per size from a list such as `2-20` or `1-6/0.5 8 10`.
 - Spacing from the widest part of the item (e.g. a 20 mm router bit head) plus room for your fingers; adjustable play in the openings and a lead-in chamfer.
 - As a Gridfinity bin (1 × 1 to 10 × 10, automatic height, stacking lip, magnets) or as a loose block for a box.
 
 **General**
+- Compact form: the main settings first, everything else in collapsible sections.
 - Live 3D preview on your print bed(s), or assembled; shareable links (all parameters live in the URL).
 - Parts are centred on the bed; anything that doesn't fit one bed is spread over several.
 - **3MF** export with one object per piece (Bambu Studio, Orca, PrusaSlicer), or **STL** (zipped when split).
