@@ -27,7 +27,12 @@
       <nav id="rail" class="rail" aria-label="Modell"></nav>
       <aside class="panel">
         <div class="panel-head">
+          <button type="button" id="plan-back" class="link-button" hidden data-i18n="plan.back"></button>
           <h1 id="model-title" class="model-title"></h1>
+          <div id="part-actions" class="part-actions" hidden>
+            <button type="button" id="part-duplicate" class="small" data-i18n="plan.duplicate"></button>
+            <button type="button" id="part-remove" class="small danger" data-i18n="plan.remove"></button>
+          </div>
         </div>
         <form id="form" class="form" onsubmit="return false"></form>
         <div class="export">
@@ -42,8 +47,21 @@
       </aside>
       <section class="stage">
         <div id="viewport" class="viewport"></div>
+        <div id="plan" class="plan" hidden>
+          <div class="plan-tools">
+            <button type="button" id="add-bin" class="small" data-i18n="plan.addBin"></button>
+            <button type="button" id="add-insert" class="small" data-i18n="plan.addInsert"></button>
+            <span id="plan-free" class="plan-note"></span>
+            <span class="plan-note" data-i18n="plan.hint"></span>
+          </div>
+          <div id="plan-area" class="plan-area"></div>
+        </div>
         <div class="overlay overlay-top">
-          <div class="segmented" role="group">
+          <div id="plan-toggle" class="segmented" role="group" hidden>
+            <button type="button" class="ghost" data-plan="plan" aria-pressed="true" data-i18n="plan.plan"></button>
+            <button type="button" class="ghost" data-plan="3d" aria-pressed="false" data-i18n="plan.3d"></button>
+          </div>
+          <div id="view-toggle" class="segmented" role="group">
             <button type="button" class="ghost" data-view="plates" aria-pressed="true" data-i18n="view.plates"></button>
             <button type="button" class="ghost" data-view="assembled" aria-pressed="false" data-i18n="view.assembled"></button>
           </div>
