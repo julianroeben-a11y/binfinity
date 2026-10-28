@@ -143,3 +143,9 @@ button.ghost { background: color-mix(in srgb, var(--panel) 80%, transparent); ba
   .panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--border); }
   .form { overflow: visible; }
 }
+
+.swatch { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; font-size: 13px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in srgb, var(--panel) 80%, transparent); backdrop-filter: blur(6px); }
+.swatch input[type="color"] { width: 22px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: none; cursor: pointer; }
+.swatch input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.swatch input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.swatch input[type="color"]::-moz-color-swatch { border: 0; border-radius: 50%; }

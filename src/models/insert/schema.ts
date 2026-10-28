@@ -1,4 +1,4 @@
-import { printerGroup } from "../printer";
+import { accentGroup, printerGroup } from "../printer";
 import type { ModelSchema, Params } from "../types";
 
 const isBin = (p: Params) => p.form === "bin";
@@ -90,6 +90,7 @@ export const insertSchema: ModelSchema = {
         { key: "magnetDepth", label: "bp.magnetDepth", type: "number", default: 2.4, min: 0.5, max: 4, step: 0.05, unit: "mm", visible: (p) => isBin(p) && p.magnets === true },
       ],
     },
+    accentGroup,
     printerGroup,
   ],
 };

@@ -1,8 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { Plate, PreviewPiece } from "../worker/protocol";
-
-const PIECE_COLORS = [0x4f8fd6, 0x3fae8c, 0xd9a441, 0xc96a5b, 0x8b7fd1, 0x5fb3c4];
+import type { Plate, PreviewMesh, PreviewPiece } from "../worker/protocol";
 
 /** Three.js preview: Z-up, orbit controls, one mesh per printable piece. */
 export class Viewer {
@@ -16,6 +14,7 @@ export class Viewer {
   private plates: Plate[] = [];
   private mode: "plates" | "assembled" = "plates";
   private hasFramed = false;
+  private colors = { body: "#4f8fd6", accent: "#e3a33b" };
 
   constructor(private host: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -57,31 +56,51 @@ export class Viewer {
     this.pieces = pieces;
     this.plates = plates;
     for (const child of [...this.group.children]) {
-      const m = child as THREE.Mesh;
-      m.geometry.dispose();
-      (m.material as THREE.Material).dispose();
-      this.group.remove(m);
+      child.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        m.geometry.dispose();
+        (m.material as THREE.Material).dispose();
+      });
+      this.group.remove(child);
     }
     pieces.forEach((p, i) => {
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute("position", new THREE.BufferAttribute(p.positions, 3));
-      geo.setAttribute("normal", new THREE.BufferAttribute(p.normals, 3));
-      geo.setIndex(new THREE.BufferAttribute(p.indices, 1));
-      const mat = new THREE.MeshStandardMaterial({
-        color: PIECE_COLORS[pieces.length > 1 ? i % PIECE_COLORS.length : 0],
-        roughness: 0.55,
-        metalness: 0.05,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(...(this.mode === "plates" ? p.onPlate : p.assembled));
-      mesh.name = p.name;
-      this.group.add(mesh);
+      const piece = new THREE.Group();
+      // Split pieces alternate between the colour and a slightly darker shade.
+      const shade = pieces.length > 1 && i % 2 ? 0.82 : 1;
+      piece.add(this.mesh(p, this.colors.body, shade, "body"));
+      if (p.accent) piece.add(this.mesh(p.accent, this.colors.accent, shade, "accent"));
+      piece.position.set(...(this.mode === "plates" ? p.onPlate : p.assembled));
+      piece.name = p.name;
+      this.group.add(piece);
     });
     this.drawBeds();
     if (!this.hasFramed) {
       this.frame();
       this.hasFramed = true;
     }
+  }
+
+  private mesh(m: PreviewMesh, color: string, shade: number, role: string) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(m.positions, 3));
+    geo.setAttribute("normal", new THREE.BufferAttribute(m.normals, 3));
+    geo.setIndex(new THREE.BufferAttribute(m.indices, 1));
+    const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(shade), roughness: 0.55, metalness: 0.05 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.userData = { role, shade };
+    return mesh;
+  }
+
+  /** Preview colours of the body and the accent part (CSS colours). */
+  setColors(body: string, accent: string) {
+    this.colors = { body, accent };
+    this.group.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const c = m.userData.role === "accent" ? accent : body;
+      (m.material as THREE.MeshStandardMaterial).color.set(c).multiplyScalar(m.userData.shade as number);
+    });
   }
 
   /** Switch between pieces laid out on print beds and the assembled model. */

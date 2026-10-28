@@ -1,4 +1,4 @@
-import { printerGroup } from "../printer";
+import { accentGroup, printerGroup } from "../printer";
 import type { ModelSchema, Params } from "../types";
 
 const isDrawer = (p: Params) => p.sizeMode === "drawer";
@@ -37,6 +37,7 @@ export const baseplateSchema: ModelSchema = {
         { key: "cornerRadius", label: "bp.cornerRadius", type: "number", default: 4, min: 0.5, max: 20, step: 0.5, unit: "mm" },
       ],
     },
+    accentGroup,
     printerGroup,
   ],
 };

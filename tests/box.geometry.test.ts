@@ -117,3 +117,18 @@ describe("buildBox", () => {
     expect(() => buildBox(params({ height: 5, floor: 4 }))).toThrow(ParamError);
   });
 });
+
+describe("colour accent", () => {
+  it("splits the top millimetres off as a second part", async () => {
+    const { splitAccent } = await import("../src/models/accent");
+    const { pieces } = buildBox(params({ lid: "lift" }));
+    const total = measureVolume(pieces[0].shape);
+    const box = splitAccent(pieces[0], true, 2);
+    expect(box.accent).not.toBeNull();
+    expect(box.accent!.boundingBox.bounds[0][2]).toBeCloseTo(48, 2);
+    expect(measureVolume(box.body) + measureVolume(box.accent!)).toBeCloseTo(total, 0);
+    // The lid is printed upside down: its accent is on the bed side.
+    const lid = splitAccent(pieces[1], true, 1);
+    expect(lid.accent!.boundingBox.bounds[1][2]).toBeCloseTo(1, 2);
+  }, 60_000);
+});

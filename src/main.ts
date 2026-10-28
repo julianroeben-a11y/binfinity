@@ -177,6 +177,25 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-export]")) {
   b.addEventListener("click", () => doExport(b.dataset.export as ExportFormat));
 }
 $("#reset-view").addEventListener("click", () => viewer.frame());
+
+// Preview colours only; they are remembered in this browser and never change the model.
+const colorInputs = [$<HTMLInputElement>("#color-body"), $<HTMLInputElement>("#color-accent")];
+try {
+  const saved = JSON.parse(localStorage.getItem("binfinity.colors") ?? "null") as string[] | null;
+  if (saved) saved.forEach((c, i) => colorInputs[i] && (colorInputs[i].value = c));
+} catch {
+  // storage blocked; keep the defaults
+}
+const applyColors = () => {
+  viewer.setColors(colorInputs[0].value, colorInputs[1].value);
+  try {
+    localStorage.setItem("binfinity.colors", JSON.stringify(colorInputs.map((c) => c.value)));
+  } catch {
+    // storage blocked; colours still apply for this visit
+  }
+};
+for (const c of colorInputs) c.addEventListener("input", applyColors);
+applyColors();
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-view]")) {
   b.addEventListener("click", () => {
     viewer.setMode(b.dataset.view as "plates" | "assembled");

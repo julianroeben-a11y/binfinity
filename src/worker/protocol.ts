@@ -6,15 +6,20 @@ export type Request =
   | { type: "generate"; id: number; model: string; params: Params }
   | { type: "export"; id: number; format: ExportFormat; quality: "normal" | "fine" };
 
-export interface PreviewPiece {
+export interface PreviewMesh {
+  positions: Float32Array;
+  normals: Float32Array;
+  indices: Uint32Array;
+}
+
+export interface PreviewPiece extends PreviewMesh {
   name: string;
+  /** Second-colour part (accent and labels), if any. */
+  accent?: PreviewMesh;
   /** Translation that places the piece in the assembled (slightly exploded) view. */
   assembled: [number, number, number];
   /** Translation that places the piece on its print bed. */
   onPlate: [number, number, number];
-  positions: Float32Array;
-  normals: Float32Array;
-  indices: Uint32Array;
 }
 
 /** A print bed in model coordinates (lower-left corner and size). */

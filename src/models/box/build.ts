@@ -174,7 +174,7 @@ export function buildBox(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
       lidShape = roundEdgesAt(lidShape.fuse(ring), t + lip, Math.min(EDGE_ROUND, ringWall / 2 - 0.1));
     }
     lidShape = lidShape.translate(sizeX + LID_GAP - minX, -minY, 0);
-    pieces.push({ name: "lid", shape: lidShape, origin: [sizeX + LID_GAP, 0, 0], size: [sizeX, sizeY, t + lip], grid: [0, 0] });
+    pieces.push({ name: "lid", shape: lidShape, origin: [sizeX + LID_GAP, 0, 0], size: [sizeX, sizeY, t + lip], grid: [0, 0], accentSide: "bottom" });
   }
 
   if (height > BED_HEIGHT) warnings.push({ key: "warn.tallerThanBed", vars: { size: BED_HEIGHT } });
