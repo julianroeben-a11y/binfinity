@@ -35,6 +35,20 @@ describe("3MF", () => {
   });
 });
 
+describe("3MF accent", () => {
+  it("groups body and accent into one object and assigns filament 2", () => {
+    const m = weld(positions, indices);
+    const zip = unzipSync(write3mf([{ name: "a", mesh: m, accent: m }, { name: "b", mesh: m }]));
+    const xml = strFromU8(zip["3D/3dmodel.model"]);
+    // a: body 1, accent 2, combined 3; b: 4.
+    expect(xml).toContain('<component objectid="1"/><component objectid="2"/>');
+    expect(xml.match(/<item objectid="(\d+)"/g)).toEqual(['<item objectid="3"', '<item objectid="4"']);
+    const cfg = strFromU8(zip["Metadata/model_settings.config"]);
+    expect(cfg).toContain('<object id="3">');
+    expect(cfg).toMatch(/<part id="2" subtype="normal_part">[\s\S]*?key="extruder" value="2"/);
+  });
+});
+
 describe("STL", () => {
   it("writes a binary STL with the right size and normals", () => {
     const m = weld(positions, indices);

@@ -1,4 +1,4 @@
-import { printerGroup } from "../printer";
+import { accentGroup, printerGroup } from "../printer";
 import type { ModelSchema, Params } from "../types";
 
 const isUnits = (p: Params) => p.heightMode === "units";
@@ -28,14 +28,15 @@ export const binSchema: ModelSchema = {
         { key: "scoop", label: "bin.scoop", type: "bool", default: false },
         { key: "label", label: "bin.label", type: "bool", default: false },
         { key: "labelDepth", label: "bin.labelDepth", type: "number", default: 12, min: 5, max: 25, step: 0.5, unit: "mm", visible: (p) => p.label === true },
+        { key: "labelText", label: "bin.labelText", type: "text", default: "", maxLength: 300, placeholder: "M3; M4; M5", visible: (p) => p.label === true },
       ],
     },
     {
       title: "group.walls",
       fields: [
-        { key: "wall", label: "bin.wall", type: "number", default: 1.2, min: 0.8, max: 4, step: 0.05, unit: "mm" },
+        { key: "wall", label: "bin.wall", type: "number", default: 1.5, min: 0.8, max: 4, step: 0.05, unit: "mm" },
         { key: "divider", label: "bin.divider", type: "number", default: 1.2, min: 0.8, max: 4, step: 0.05, unit: "mm", visible: (p) => (p.divX as number) > 1 || (p.divY as number) > 1 },
-        { key: "floor", label: "bin.floor", type: "number", default: 1.2, min: 0.6, max: 10, step: 0.1, unit: "mm" },
+        { key: "floor", label: "bin.floor", type: "number", default: 1.5, min: 0.6, max: 10, step: 0.1, unit: "mm" },
         { key: "honeycomb", label: "bin.honeycomb", type: "bool", default: false },
         { key: "honeycombSize", label: "bin.honeycombSize", type: "number", default: 8, min: 4, max: 30, step: 0.5, unit: "mm", visible: (p) => p.honeycomb === true },
       ],
@@ -49,6 +50,7 @@ export const binSchema: ModelSchema = {
         { key: "screws", label: "bin.screws", type: "bool", default: false },
       ],
     },
+    accentGroup,
     printerGroup,
   ],
 };

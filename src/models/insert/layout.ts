@@ -68,6 +68,8 @@ export interface ShelfItem {
   d: number;
   /** Free space it wants towards its neighbours (the larger of two wins). */
   gap: number;
+  /** Free space towards the rows before and after, if not `gap`. */
+  rowGap?: number;
 }
 
 export interface ShelfLayout {
@@ -87,7 +89,7 @@ export function layoutShelves(areaX: number, areaY: number, items: ShelfItem[]):
   let row: number[] = [];
   let used = 0;
   const depth = (r: number[]) => Math.max(...r.map((i) => items[i].d));
-  const rowGap = (r: number[]) => Math.max(...r.map((i) => items[i].gap));
+  const rowGap = (r: number[]) => Math.max(...r.map((i) => items[i].rowGap ?? items[i].gap));
   const between = (a: number[], b: number[]) => Math.max(rowGap(a), rowGap(b));
   // Depth of the rows so far plus `extra` as the next one.
   const total = (extra: number[] | null) => {

@@ -1,5 +1,6 @@
 // Builds real bin geometry with OpenCascade (WASM) in Node.
 import { beforeAll, describe, expect, it } from "vitest";
+import { loadTestFont } from "./font";
 import opencascade from "replicad-opencascadejs";
 import { makeBox, measureVolume, setOC, type Shape3D } from "replicad";
 import { buildBin } from "../src/models/bin/build";
@@ -11,6 +12,7 @@ const params = (over: Record<string, unknown> = {}) => sanitize(binSchema, { ...
 
 beforeAll(async () => {
   setOC(await opencascade());
+  await loadTestFont();
 }, 60_000);
 
 function isWatertight(indices: Uint32Array): boolean {
@@ -56,8 +58,9 @@ describe("buildBin", () => {
   }, 60_000);
 
   it("rounds the top edges of walls and dividers", () => {
+    // Thin walls, so the rounded top stands out against the slice below.
     for (const over of [{ lip: false, divX: 3, divY: 2 }, { lip: true }]) {
-      const { pieces } = buildBin(params(over));
+      const { pieces } = buildBin(params({ ...over, wall: 1.2 }));
       const shape = pieces[0].shape;
       const top = shape.boundingBox.bounds[1][2];
       // With rounded edges the very top is much narrower than 1 mm below it.
@@ -67,7 +70,7 @@ describe("buildBin", () => {
   }, 120_000);
 
   it("rounds the divider tops below the stacking lip", () => {
-    const plain = buildBin(params({ lip: true, divX: 3 })).pieces[0].shape;
+    const plain = buildBin(params({ lip: true, divX: 3, wall: 1.2 })).pieces[0].shape;
     // Dividers end 0.5 mm under the lip support (21 − 1.4 − 0.5 = 19.1 mm) in a half-round.
     const near = areaBelow(plain, 19.09);
     const lower = areaBelow(plain, 18);
@@ -97,6 +100,30 @@ describe("buildBin", () => {
     const divided = buildBin(params({ divX: 3, divY: 2, scoop: true, label: true }));
     expect(measureVolume(divided.pieces[0].shape)).toBeGreaterThan(plain + 500);
     checkMesh(divided.pieces[0].shape);
+  }, 60_000);
+
+  it("engraves one text per compartment into the label shelf", () => {
+    const over = { gridY: 2, divX: 2, divY: 2, label: true, wall: 1.2 };
+    const plain = measureVolume(buildBin(params(over)).pieces[0].shape);
+    const { pieces, info } = buildBin(params({ ...over, labelText: "M3; M4;; M6" }));
+    const labels = pieces[0].labels!;
+    expect(labels).toBeDefined();
+    expect(info.warnings).toEqual([]);
+    // The engraving takes as much material as the fill gives back.
+    const fill = measureVolume(labels);
+    expect(fill).toBeGreaterThan(5);
+    expect(plain - measureVolume(pieces[0].shape)).toBeCloseTo(fill, 0);
+    checkMesh(pieces[0].shape);
+    // Three texts, so the fill splits into three groups along X/Y.
+    const [[x0, y0], [x1, y1]] = labels.boundingBox.bounds;
+    expect(x1 - x0).toBeGreaterThan(20);
+    expect(y1 - y0).toBeGreaterThan(20);
+  }, 60_000);
+
+  it("leaves out a text too long for its compartment", () => {
+    const { pieces, info } = buildBin(params({ gridX: 1, divX: 3, label: true, labelText: "Unterlegscheiben M3 und M4" }));
+    expect(pieces[0].labels).toBeUndefined();
+    expect(info.warnings.some((w) => w.key === "warn.labelSkipped")).toBe(true);
   }, 60_000);
 
   it("cuts magnet and screw holes into every foot", () => {

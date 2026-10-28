@@ -1,6 +1,7 @@
 import { draw, drawRoundedRectangle, makeBox, makeCompound, makeCylinder, sketchCircle, sketchRoundedRectangle, type Shape3D, type Sketch } from "replicad";
 import { roundEdgesAt } from "../edges";
 import { HONEYCOMB_WEB, honeycombTool } from "../honeycomb";
+import { engrave, type TextItem } from "../text";
 import {
   BIN_CLEARANCE,
   BIN_FOOT,
@@ -74,6 +75,10 @@ const EDGE_ROUND = 0.5;
 const DIVIDER_DROP = 0.5;
 /** Without a lip, the label shelf ends this far below the rim. */
 const LABEL_DROP = 1;
+/** Text on the label shelf: largest cap height and distance to its edges. */
+const LABEL_CAP = 5;
+const LABEL_MARGIN_FRONT = 1.5;
+const LABEL_MARGIN_BACK = 0.8;
 /** 45° chamfer around magnet holes, makes pressing magnets in easier. */
 const MAGNET_CHAMFER = 0.3;
 
@@ -281,6 +286,29 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
   // Without a lip, round the wall and divider tops.
   if (!lip) shape = roundEdgesAt(shape, top, Math.min(EDGE_ROUND, wall / 2 - 0.1, divider / 2 - 0.1));
 
+  // Text on the label shelves, one per compartment: back row first, each
+  // row from left to right, as seen from the front.
+  let labels: Shape3D | undefined;
+  if (labelDepth > 0) {
+    const names = String(p.labelText ?? "").split(";");
+    const texts: TextItem[] = [];
+    for (let j = divY - 1, n = 0; j >= 0; j--) {
+      for (let i = 0; i < divX; i++, n++) {
+        const text = names[n]?.trim();
+        if (!text) continue;
+        const x = -innerW / 2 + cw / 2 + i * (cw + divider);
+        const yBack = -innerD / 2 + (j + 1) * cd + j * divider;
+        // The shelf thins out towards its front edge, so the text keeps away from it.
+        const room = labelDepth - LABEL_MARGIN_FRONT - LABEL_MARGIN_BACK;
+        texts.push({ text, x, y: yBack - LABEL_MARGIN_BACK - room / 2, z: labelTop, maxW: cw - 2 * (compRadius + 0.5), cap: Math.min(LABEL_CAP, room * 0.7) });
+      }
+    }
+    const engraved = engrave(shape, texts);
+    shape = engraved.shape;
+    labels = engraved.labels;
+    if (engraved.skipped.length) warnings.push({ key: "warn.labelSkipped", vars: { texts: engraved.skipped.join(", ") } });
+  }
+
   // Honeycomb openings in the outer walls. They come last: the lip cut and
   // the roundings get many times slower on a perforated body. They stay
   // clear of the floor, scoop, label shelf, rim and dividers.
@@ -308,6 +336,7 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
 
   // Place the bin with its corner at the origin, like the baseplate.
   shape = shape.translate(w / 2, d / 2, 0);
+  labels = labels?.translate(w / 2, d / 2, 0);
 
   const heightLabel = p.heightMode === "mm" ? `${height}mm` : `${p.heightUnits}u`;
   const r2 = (n: number) => Math.round(n * 10) / 10;
@@ -320,7 +349,7 @@ export function buildBin(p: Params): { pieces: BuiltPiece[]; info: BuildInfo } {
     else warnings.push({ key: "warn.honeycombNone" });
   }
   return {
-    pieces: [{ name: `bin_${gx}x${gy}x${heightLabel}`, shape, origin: [0, 0, 0], size: [w, d, top], grid: [0, 0] }],
+    pieces: [{ name: `bin_${gx}x${gy}x${heightLabel}`, shape, labels, origin: [0, 0, 0], size: [w, d, top], grid: [0, 0] }],
     info: { size: [w, d, top], facts, warnings },
   };
 }

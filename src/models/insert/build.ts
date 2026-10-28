@@ -5,9 +5,10 @@ import { cellCentres, foot, footHoles, lipTool, LIP_ROUND } from "../bin/build";
 import { chamferEdgesAt, roundEdgesAt } from "../edges";
 import { BIN_CLEARANCE, BIN_FOOT_HEIGHT, BIN_RADIUS, GRID, HEIGHT_UNIT, LIP_HEIGHT, LIP_INSET } from "../gridfinity";
 import { planarLoft } from "../solids";
+import { engrave, textWidth, type TextItem } from "../text";
 import type { BuiltPiece } from "../build-types";
 import { ParamError, type BuildInfo, type Params } from "../types";
-import { layoutItems, layoutShelves, layoutSizes, parseSizes } from "./layout";
+import { layoutItems, layoutShelves, parseSizes } from "./layout";
 import { itemPresets, mixItems } from "./schema";
 
 const EPS = 0.01;
@@ -17,8 +18,9 @@ const WEB = 1.6;
 const EDGE = 1.5;
 /** 45° entry chamfer on the openings, so items find their way in. */
 const ENTRY = 0.8;
-/** Loose inserts: corner radius, bottom chamfer and rounded top edge. */
-const LOOSE_RADIUS = 2;
+/** Loose inserts: corners up to this radius need no extra room. */
+const LOOSE_SAFE_RADIUS = 2;
+/** Loose inserts: bottom chamfer and rounded top edge. */
 const LOOSE_CHAMFER = 0.4;
 const TOP_ROUND = 0.6;
 
@@ -81,9 +83,17 @@ interface ItemSpec {
   /** Room the item takes along X and Y. */
   footX: number;
   footY: number;
-  gap: number;
+  /** Free space towards the neighbours along X and Y. */
+  gapX: number;
+  gapY: number;
   depth: number;
 }
+
+/**
+ * Slots: sticks and cards are gripped on their broad faces, so the finger
+ * gap goes there; side by side along their length they only need this much.
+ */
+const SLOT_END_GAP = 2;
 
 /** Opening and room of one kind of item, from the item fields (or a preset). */
 function itemSpec(v: Params, clearance: number): ItemSpec {
@@ -92,22 +102,35 @@ function itemSpec(v: Params, clearance: number): ItemSpec {
   let oy = kind === "slot" ? (v.slotWidth as number) + clearance : kind === "hex" ? (ox * 2) / Math.sqrt(3) : ox;
   if (kind === "slot" && oy > ox) [ox, oy] = [oy, ox];
   const item = v.itemX as number;
+  const gap = v.gap as number;
+  const footX = Math.max(ox, item + clearance);
+  const footY = Math.max(oy, (kind === "slot" ? (v.itemY as number) : item) + clearance);
+  // Openings always keep at least a web of material between them.
   return {
     kind,
     ox,
     oy,
-    footX: Math.max(ox, item + clearance),
-    footY: Math.max(oy, (kind === "slot" ? (v.itemY as number) : item) + clearance),
-    gap: v.gap as number,
+    footX,
+    footY,
+    gapX: Math.max(kind === "slot" ? Math.min(gap, SLOT_END_GAP) : gap, ox + WEB - footX),
+    gapY: Math.max(gap, oy + WEB - footY),
     depth: v.holeDepth as number,
   };
 }
 
 const r2 = (n: number) => Math.round(n * 10) / 10;
+/** Size labels in front of the holes of a set: cap height and distance to the hole. */
+const SIZE_LABEL_CAP = 2.5;
+const SIZE_LABEL_GAP = 1.2;
+const sizeText = (s: number) => String(Math.round(s * 100) / 100);
 const entry = (gap: number) => Math.max(0, Math.min(ENTRY, (gap - WEB) / 2));
+/** Entry chamfer that keeps a web of material to every neighbour. */
+const specEntry = (s: ItemSpec) => Math.max(0, Math.min(ENTRY, (s.footX - s.ox + s.gapX - WEB) / 2, (s.footY - s.oy + s.gapY - WEB) / 2));
 
 interface Plan {
   holes: Opening[];
+  /** Labels on the top face (z is filled in later). */
+  texts: Omit<TextItem, "z">[];
   /** Deepest opening wanted. */
   depth: number;
   warnings: BuildInfo["warnings"];
@@ -123,14 +146,29 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
 
   if (kind === "set") {
     // Different sizes: each hole is as wide as its item, neighbours keep the gap.
+    // With labels each hole gets a strip in front of it for its size.
     const g = Math.max(gap, WEB);
     const sizes = parseSizes(String(p.sizes), 0.5, 100);
-    const { items, missing } = layoutSizes(ax, ay, sizes.map((s) => s + clearance), g);
-    const holes = items.map((it) => ({ x: it.x, y: it.y, kind: "round", x0: it.size, y0: it.size, depth, chamfer: entry(g) }));
+    const labelled = p.sizeLabels === true;
+    const band = labelled ? SIZE_LABEL_GAP + SIZE_LABEL_CAP : 0;
+    const names = sizes.map(sizeText);
+    // Hex keys: the size is across flats, the room is across corners.
+    const hex = p.setShape === "hex";
+    const across = (s: number) => (hex ? ((s + clearance) * 2) / Math.sqrt(3) : s + clearance);
+    const items = sizes.map((s, i) => ({ w: Math.max(across(s), labelled ? textWidth(names[i], SIZE_LABEL_CAP) : 0), d: across(s) + band, gap: g }));
+    const { placed, missing } = layoutShelves(ax, ay, items);
+    const holes = placed.map(({ x, y, index }) => {
+      const size = sizes[index] + clearance;
+      return { x, y: y + band / 2, kind: hex ? "hex" : "round", x0: size, y0: size, depth, chamfer: entry(g) };
+    });
+    const texts = labelled
+      ? placed.map(({ x, y, index }) => ({ text: names[index], x, y: y - items[index].d / 2 + SIZE_LABEL_CAP / 2, maxW: items[index].w, cap: SIZE_LABEL_CAP }))
+      : [];
     return {
       holes,
+      texts,
       depth,
-      warnings: missing.length ? [{ key: "warn.insertMissing", vars: { sizes: missing.map((m) => r2(m - clearance)).join(", ") } }] : [],
+      warnings: missing.length ? [{ key: "warn.insertMissing", vars: { sizes: missing.map((i) => r2(sizes[i])).join(", ") } }] : [],
       facts: (d) => (holes.length ? [{ key: "fact.insertSet", vars: { n: holes.length, from: r2(sizes[0]), to: r2(sizes[holes.length - 1]), d: r2(d) } }] : []),
     };
   }
@@ -141,26 +179,24 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
     const kinds = mixItems
       .map((k) => ({ spec: itemSpec(itemPresets[k], clearance), n: Math.round(p[`count_${k}`] as number) }))
       .filter((k) => k.n > 0)
-      .map(({ spec, n }) => ({ n, spec: spec.kind === "slot" ? { ...spec, ox: spec.oy, oy: spec.ox, footX: spec.footY, footY: spec.footX } : spec }))
+      .map(({ spec, n }) => ({ n, spec: spec.kind === "slot" ? { ...spec, ox: spec.oy, oy: spec.ox, footX: spec.footY, footY: spec.footX, gapX: spec.gapY, gapY: spec.gapX } : spec }))
       .sort((a, b) => b.spec.footY - a.spec.footY);
     const specs = kinds.flatMap(({ spec, n }) => Array<ItemSpec>(n).fill(spec));
-    const { placed, missing } = layoutShelves(ax, ay, specs.map((s) => ({ w: s.footX, d: s.footY, gap: Math.max(s.gap, WEB) })));
+    const { placed, missing } = layoutShelves(ax, ay, specs.map((s) => ({ w: s.footX, d: s.footY, gap: s.gapX, rowGap: s.gapY })));
     const holes = placed.map(({ x, y, index }) => {
       const s = specs[index];
-      return { x, y, kind: s.kind, x0: s.ox, y0: s.oy, depth: s.depth, chamfer: entry(Math.max(s.gap, WEB)) };
+      return { x, y, kind: s.kind, x0: s.ox, y0: s.oy, depth: s.depth, chamfer: specEntry(s) };
     });
     return {
       holes,
+      texts: [],
       depth: Math.max(0, ...specs.map((s) => s.depth)),
       warnings: missing.length ? [{ key: "warn.insertMixMissing", vars: { n: missing.length } }] : [],
       facts: () => [{ key: "fact.insertMix", vars: { n: holes.length, kinds: kinds.length } }],
     };
   }
 
-  const { ox, oy, footX, footY } = itemSpec(p, clearance);
-  // Items keep `gap` between them, the openings at least a web of material.
-  const gapX = Math.max(gap, ox + WEB - footX);
-  const gapY = Math.max(gap, oy + WEB - footY);
+  const { ox, oy, footX, footY, gapX, gapY } = itemSpec(p, clearance);
 
   // Slots may be turned by 90° if that fits more of them.
   const stagger = kind !== "slot" && p.stagger === true;
@@ -181,6 +217,7 @@ function planOpenings(p: Params, ax: number, ay: number): Plan {
   const holes = layout.centres.map(([x, y]) => ({ x, y, kind, x0: lx, y0: ly, depth, chamfer }));
   return {
     holes,
+    texts: [],
     depth,
     warnings: [],
     facts: (d): BuildInfo["facts"] => [
@@ -225,7 +262,9 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
   } else {
     w = p.width as number;
     d = p.length as number;
-    plan = planOpenings(p, w - 2 * EDGE, d - 2 * EDGE);
+    // Large corner radii take room from the items in the corners.
+    const edge = EDGE + Math.max(0, (p.cornerRadius as number) - LOOSE_SAFE_RADIUS) * (1 - Math.SQRT1_2);
+    plan = planOpenings(p, w - 2 * edge, d - 2 * edge);
   }
   if (!plan.holes.length) throw new ParamError({ key: kind === "mix" && plan.depth === 0 ? "err.insertEmpty" : "err.insertNoFit" });
   warnings.push(...plan.warnings);
@@ -270,7 +309,7 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
     const holes = footHoles(p, cells);
     if (holes) shape = shape.cut(holes);
   } else {
-    const r = Math.min(LOOSE_RADIUS, w / 2 - 0.1, d / 2 - 0.1);
+    const r = Math.min(p.cornerRadius as number, w / 2 - 0.1, d / 2 - 0.1);
     shape = drawRoundedRectangle(w, d, r).sketchOnPlane("XY").extrude(top) as Shape3D;
     shape = chamferEdgesAt(shape, 0, LOOSE_CHAMFER);
     shape = roundEdgesAt(shape, top, TOP_ROUND);
@@ -290,13 +329,21 @@ export function buildInsert(p: Params): { pieces: BuiltPiece[]; info: BuildInfo 
   for (const t of protos.values()) t.delete();
   shape = shape.cut(makeCompound(tools) as unknown as Shape3D);
 
+  const engraved = engrave(
+    shape,
+    plan.texts.map((t) => ({ ...t, z: surface })),
+  );
+  shape = engraved.shape;
+  if (engraved.skipped.length) warnings.push({ key: "warn.labelSkipped", vars: { texts: engraved.skipped.join(", ") } });
+
   // Corner at the origin, like bins and boxes.
   shape = shape.translate(w / 2, d / 2, 0);
+  const labels = engraved.labels?.translate(w / 2, d / 2, 0);
 
   const facts: BuildInfo["facts"] = [{ key: "fact.size", vars: { x: r2(w), y: r2(d), z: r2(top) } }, ...plan.facts(holeDepth)];
   const name = isBin ? `insert_${gx}x${gy}x${unitsLabel}` : `insert_${r2(w)}x${r2(d)}`;
   return {
-    pieces: [{ name, shape, origin: [0, 0, 0], size: [w, d, top], grid: [0, 0] }],
+    pieces: [{ name, shape, labels, origin: [0, 0, 0], size: [w, d, top], grid: [0, 0] }],
     info: { size: [w, d, top], facts, warnings },
   };
 }

@@ -48,7 +48,18 @@ export interface TextField extends FieldBase {
   placeholder?: string;
 }
 
-export type Field = NumberField | BoolField | SelectField | TextField;
+/**
+ * A button that fills in other fields, e.g. from the settings of another
+ * model. Holds no value of its own.
+ */
+export interface ActionField extends FieldBase {
+  type: "action";
+  /** New values for other fields, from the current ones and the last settings of every model. */
+  run: (values: Params, models: Record<string, Params>) => Params;
+}
+
+export type ValueField = NumberField | BoolField | SelectField | TextField;
+export type Field = ValueField | ActionField;
 
 export interface FieldGroup {
   title: string;
@@ -65,7 +76,7 @@ export interface ModelSchema {
 
 export function defaults(schema: ModelSchema): Params {
   const p: Params = {};
-  for (const g of schema.groups) for (const f of g.fields) p[f.key] = f.default;
+  for (const g of schema.groups) for (const f of g.fields) if (f.type !== "action") p[f.key] = f.default;
   return p;
 }
 
@@ -75,7 +86,7 @@ export function sanitize(schema: ModelSchema, input: Record<string, unknown>): P
   for (const g of schema.groups) {
     for (const f of g.fields) {
       const v = input[f.key];
-      if (v === undefined) continue;
+      if (v === undefined || f.type === "action") continue;
       if (f.type === "number") {
         const n = typeof v === "number" ? v : parseFloat(String(v));
         if (Number.isFinite(n)) p[f.key] = Math.min(f.max, Math.max(f.min, n));

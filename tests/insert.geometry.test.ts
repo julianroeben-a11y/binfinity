@@ -1,5 +1,6 @@
 // Builds real insert geometry with OpenCascade (WASM) in Node.
 import { beforeAll, describe, expect, it } from "vitest";
+import { loadTestFont } from "./font";
 import opencascade from "replicad-opencascadejs";
 import { measureVolume, setOC, type Shape3D } from "replicad";
 import { buildInsert } from "../src/models/insert/build";
@@ -15,6 +16,7 @@ const params = (over: Record<string, unknown> = {}) => sanitize(insertSchema, { 
 
 beforeAll(async () => {
   setOC(await opencascade());
+  await loadTestFont();
 }, 60_000);
 
 function watertight(shape: Shape3D): boolean {
@@ -73,7 +75,7 @@ describe("buildInsert", () => {
     expect(count(info)).toBeGreaterThan(5);
     const [min, max] = pieces[0].shape.boundingBox.bounds;
     expect(max[0] - min[0]).toBeCloseTo(80, 1);
-    expect(max[2] - min[2]).toBeCloseTo(1.2 + 14, 1);
+    expect(max[2] - min[2]).toBeCloseTo(1.5 + 14, 1);
     expect(watertight(pieces[0].shape)).toBe(true);
   }, 60_000);
 
@@ -83,8 +85,31 @@ describe("buildInsert", () => {
     expect(set.vars).toMatchObject({ n: 19, from: 2, to: 20 });
     expect(info.warnings).toEqual([]);
     expect(watertight(pieces[0].shape)).toBe(true);
+    // Every hole has its size engraved in front of it.
+    const labels = pieces[0].labels!;
+    expect(labels).toBeDefined();
+    expect(measureVolume(labels)).toBeGreaterThan(19 * 1);
+    const unlabelled = buildInsert(params({ ...preset("drills"), sizes: "2-20", gridX: 4, gridY: 2, sizeLabels: false }));
+    expect(unlabelled.pieces[0].labels).toBeUndefined();
     const small = buildInsert(params({ ...preset("drills"), sizes: "2-20", gridX: 1, gridY: 1 }));
     expect(small.info.warnings.some((w) => w.key === "warn.insertMissing")).toBe(true);
+  }, 60_000);
+
+  it("builds every preset", () => {
+    for (const name of ["allen", "screwdriver", "file", "pen", "li18650", "cr2032"]) {
+      const { pieces } = buildInsert(params({ ...preset(name), preset: name, gridX: 3, gridY: 2 }));
+      expect(measureVolume(pieces[0].shape), name).toBeGreaterThan(0);
+    }
+  }, 120_000);
+
+  it("takes Allen keys across flats in hexagonal holes", () => {
+    const { pieces, info } = buildInsert(params({ ...preset("allen"), gridX: 3, gridY: 2 }));
+    expect(info.facts.find((f) => f.key === "fact.insertSet")!.vars).toMatchObject({ n: 9, from: 1.5, to: 10 });
+    expect(watertight(pieces[0].shape)).toBe(true);
+    // A hexagon across flats is larger than a circle of the same size.
+    const round = buildInsert(params({ ...preset("allen"), setShape: "round", sizeLabels: false, gridX: 3, gridY: 2 }));
+    const hex = buildInsert(params({ ...preset("allen"), sizeLabels: false, gridX: 3, gridY: 2 }));
+    expect(measureVolume(hex.pieces[0].shape)).toBeLessThan(measureVolume(round.pieces[0].shape));
   }, 60_000);
 
   it("warns when the chosen height is too low", () => {

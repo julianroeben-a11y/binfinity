@@ -11,6 +11,13 @@ export interface BuiltPiece {
   size: [number, number, number];
   /** Position in the split grid, used to explode the preview. */
   grid: [number, number];
+  /**
+   * Solids of engraved labels, already cut out of `shape`. With a colour
+   * accent they are filled in with the second filament.
+   */
+  labels?: Shape3D;
+  /** Where the colour accent goes: the top as printed, or the bed side (lids). */
+  accentSide?: "top" | "bottom";
 }
 
 export type BuildFn = (p: Params) => { pieces: BuiltPiece[]; info: BuildInfo };

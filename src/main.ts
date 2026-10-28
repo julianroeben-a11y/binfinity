@@ -146,18 +146,47 @@ function renderAll() {
   document.title = `Binfinity · ${t(`model.${state.model}`)}`;
   for (const el of document.querySelectorAll<HTMLElement>("[data-i18n]")) el.textContent = t(el.dataset.i18n!);
   renderModelTabs();
-  renderForm($("#form"), schemas[state.model], state.params, (p) => {
-    state.params = p;
-    scheduleGenerate();
-  });
+  renderForm(
+    $("#form"),
+    schemas[state.model],
+    state.params,
+    (p) => {
+      state.params = p;
+      remember();
+      scheduleGenerate();
+    },
+    remembered,
+  );
   renderInfo(lastInfo.facts, lastInfo.warnings);
   renderStatus();
 }
 
-function selectModel(id: string, raw: Record<string, unknown> = {}) {
+/**
+ * Last settings of every model in this browser tab, so switching models keeps
+ * them and one model can take values from another (insert from box).
+ */
+const remembered: Record<string, Params> = (() => {
+  try {
+    return JSON.parse(sessionStorage.getItem("binfinity.params") ?? "{}") as Record<string, Params>;
+  } catch {
+    return {};
+  }
+})();
+
+function remember() {
+  remembered[state.model] = { ...state.params };
+  try {
+    sessionStorage.setItem("binfinity.params", JSON.stringify(remembered));
+  } catch {
+    // Storage can be blocked; switching models then starts from the defaults.
+  }
+}
+
+function selectModel(id: string, raw?: Record<string, unknown>) {
   if (id !== state.model) viewer.reframeNext();
   state.model = id;
-  state.params = sanitize(schemas[id], raw);
+  state.params = sanitize(schemas[id], raw ?? remembered[id] ?? {});
+  remember();
   renderAll();
   scheduleGenerate();
 }
@@ -177,6 +206,25 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("[data-export]")) {
   b.addEventListener("click", () => doExport(b.dataset.export as ExportFormat));
 }
 $("#reset-view").addEventListener("click", () => viewer.frame());
+
+// Preview colours only; they are remembered in this browser and never change the model.
+const colorInputs = [$<HTMLInputElement>("#color-body"), $<HTMLInputElement>("#color-accent")];
+try {
+  const saved = JSON.parse(localStorage.getItem("binfinity.colors") ?? "null") as string[] | null;
+  if (saved) saved.forEach((c, i) => colorInputs[i] && (colorInputs[i].value = c));
+} catch {
+  // storage blocked; keep the defaults
+}
+const applyColors = () => {
+  viewer.setColors(colorInputs[0].value, colorInputs[1].value);
+  try {
+    localStorage.setItem("binfinity.colors", JSON.stringify(colorInputs.map((c) => c.value)));
+  } catch {
+    // storage blocked; colours still apply for this visit
+  }
+};
+for (const c of colorInputs) c.addEventListener("input", applyColors);
+applyColors();
 for (const b of document.querySelectorAll<HTMLButtonElement>("[data-view]")) {
   b.addEventListener("click", () => {
     viewer.setMode(b.dataset.view as "plates" | "assembled");

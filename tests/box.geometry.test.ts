@@ -39,7 +39,7 @@ describe("buildBox", () => {
     const { pieces } = buildBox(params());
     const bb = pieces[0].shape.boundingBox;
     expect([bb.width, bb.height, bb.depth].map((v) => Math.round(v * 100) / 100)).toEqual([120, 80, 50]);
-    const shell = 120 * 80 * 50 - (120 - 3.2) * (80 - 3.2) * (50 - 1.6);
+    const shell = 120 * 80 * 50 - (120 - 3) * (80 - 3) * (50 - 1.5);
     // Rounded corners make it a little lighter than the square estimate.
     expect(measureVolume(pieces[0].shape) / shell).toBeGreaterThan(0.95);
     expect(measureVolume(pieces[0].shape) / shell).toBeLessThan(1);
@@ -48,9 +48,9 @@ describe("buildBox", () => {
 
   it("adds the walls when sized by the inside", () => {
     const bb = buildBox(params({ sizeMode: "inner", width: 100, depth: 60, height: 40 })).pieces[0].shape.boundingBox;
-    expect(bb.width).toBeCloseTo(103.2, 2);
-    expect(bb.height).toBeCloseTo(63.2, 2);
-    expect(bb.depth).toBeCloseTo(41.6, 2);
+    expect(bb.width).toBeCloseTo(103, 2);
+    expect(bb.height).toBeCloseTo(63, 2);
+    expect(bb.depth).toBeCloseTo(41.5, 2);
   }, 60_000);
 
   it("builds round and hexagonal boxes", () => {
@@ -66,8 +66,8 @@ describe("buildBox", () => {
     const box = pieces[0].shape;
     // The bottom slice is narrower than the opening: outer minus 2 × (wall + clearance).
     const foot = box.clone().intersect(makeBox([-1, -1, 1], [200, 200, 1.5])).boundingBox;
-    expect(foot.width).toBeCloseTo(120 - 2 * (1.6 + 0.3), 2);
-    expect(foot.height).toBeCloseTo(80 - 2 * (1.6 + 0.3), 2);
+    expect(foot.width).toBeCloseTo(120 - 2 * (1.5 + 0.3), 2);
+    expect(foot.height).toBeCloseTo(80 - 2 * (1.5 + 0.3), 2);
     expectWatertight(box);
   }, 60_000);
 
@@ -116,4 +116,19 @@ describe("buildBox", () => {
   it("rejects boxes that are too low", () => {
     expect(() => buildBox(params({ height: 5, floor: 4 }))).toThrow(ParamError);
   });
+});
+
+describe("colour accent", () => {
+  it("splits the top millimetres off as a second part", async () => {
+    const { splitAccent } = await import("../src/models/accent");
+    const { pieces } = buildBox(params({ lid: "lift" }));
+    const total = measureVolume(pieces[0].shape);
+    const box = splitAccent(pieces[0], true, 2);
+    expect(box.accent).not.toBeNull();
+    expect(box.accent!.boundingBox.bounds[0][2]).toBeCloseTo(48, 2);
+    expect(measureVolume(box.body) + measureVolume(box.accent!)).toBeCloseTo(total, 0);
+    // The lid is printed upside down: its accent is on the bed side.
+    const lid = splitAccent(pieces[1], true, 1);
+    expect(lid.accent!.boundingBox.bounds[1][2]).toBeCloseTo(1, 2);
+  }, 60_000);
 });

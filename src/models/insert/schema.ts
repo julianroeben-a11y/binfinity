@@ -1,5 +1,6 @@
-import { printerGroup } from "../printer";
-import type { ModelSchema, Params } from "../types";
+import { accentGroup, printerGroup } from "../printer";
+import { boxCompartment, boxSchema } from "../box/schema";
+import { sanitize, type ModelSchema, type Params } from "../types";
 
 const isBin = (p: Params) => p.form === "bin";
 const isSlot = (p: Params) => p.opening === "slot";
@@ -15,11 +16,22 @@ export const itemPresets: Record<string, Params> = {
   shank6: { opening: "round", size: 6, holeDepth: 20, itemX: 20, gap: 8 },
   shank8: { opening: "round", size: 8, holeDepth: 20, itemX: 20, gap: 8 },
   shank12: { opening: "round", size: 12, holeDepth: 22, itemX: 20, gap: 8 },
-  drills: { opening: "set", sizes: "2-10", holeDepth: 20, gap: 4 },
+  drills: { opening: "set", setShape: "round", sizes: "2-10", holeDepth: 20, gap: 4 },
+  // L-keys stand on their long arm; the short one sticks out above the insert.
+  allen: { opening: "set", setShape: "hex", sizes: "1.5 2 2.5 3 4 5 6 8 10", holeDepth: 25, gap: 4 },
+  // Shaft down, the handle (up to about 32 mm) above the insert.
+  screwdriver: { opening: "round", size: 8, holeDepth: 30, itemX: 32, gap: 3 },
+  // Flat files with a round handle.
+  file: { opening: "slot", size: 22, slotWidth: 6, holeDepth: 35, itemX: 30, itemY: 30, gap: 3 },
+  pen: { opening: "round", size: 11, holeDepth: 30, itemX: 11, gap: 4 },
   aa: { opening: "round", size: 14.5, holeDepth: 20, itemX: 14.5, gap: 5 },
   aaa: { opening: "round", size: 10.5, holeDepth: 18, itemX: 10.5, gap: 5 },
-  usba: { opening: "slot", size: 12, slotWidth: 4.5, holeDepth: 11, itemX: 22, itemY: 12, gap: 6 },
-  usbc: { opening: "slot", size: 8.4, slotWidth: 2.6, holeDepth: 7, itemX: 22, itemY: 10, gap: 6 },
+  // Protected cells are up to 18.6 mm wide.
+  li18650: { opening: "round", size: 18.6, holeDepth: 25, itemX: 18.6, gap: 5 },
+  // Coin cells stand upright, a bit more than half sunk in.
+  cr2032: { opening: "slot", size: 20, slotWidth: 3.2, holeDepth: 12, itemX: 20, itemY: 3.2, gap: 6 },
+  usba: { opening: "slot", size: 12, slotWidth: 4.5, holeDepth: 11, itemX: 21, itemY: 10.5, gap: 6 },
+  usbc: { opening: "slot", size: 8.4, slotWidth: 2.6, holeDepth: 7, itemX: 21, itemY: 10, gap: 6 },
   sd: { opening: "slot", size: 24, slotWidth: 2.1, holeDepth: 14, itemX: 24, itemY: 2.1, gap: 8 },
   microsd: { opening: "slot", size: 11, slotWidth: 1, holeDepth: 7, itemX: 11, itemY: 1, gap: 6 },
 };
@@ -33,6 +45,19 @@ const presets: Record<string, Params> = {
   ...itemPresets,
   mix: { opening: "mix" },
 };
+/** Play of a loose insert in its box, per side. */
+const BOX_FIT = 0.5;
+const r1 = (n: number) => Math.floor(n * 10) / 10;
+
+/** Size a loose insert to the box last set up (one compartment of it). */
+function fitToBox(_: Params, models: Record<string, Params>): Params {
+  const box = boxCompartment(sanitize(boxSchema, models.box ?? {}));
+  const w = r1(box.w - 2 * BOX_FIT);
+  const d = r1(box.d - 2 * BOX_FIT);
+  // A smaller corner than the box's would run into its rounded corners.
+  return { width: w, length: d, cornerRadius: Math.min(Math.max(2, r1(box.radius)), w / 2 - 0.1, d / 2 - 0.1) };
+}
+
 const mixDefaults: Record<string, number> = { usba: 4, sd: 3, microsd: 1 };
 
 export const insertSchema: ModelSchema = {
@@ -46,6 +71,8 @@ export const insertSchema: ModelSchema = {
         { key: "preset", label: "insert.preset", type: "select", default: "hexbit", options: [...Object.keys(presets), "custom"], presets },
         { key: "opening", label: "insert.opening", type: "select", default: "hex", options: ["round", "hex", "slot", "set", "mix"], advanced: true },
         { key: "sizes", label: "insert.sizes", type: "text", default: "2-10", maxLength: 200, placeholder: "2 3 4 5 6 8 10", visible: isSet },
+        { key: "setShape", label: "insert.setShape", type: "select", default: "round", options: ["round", "hex"], visible: isSet, advanced: true },
+        { key: "sizeLabels", label: "insert.sizeLabels", type: "bool", default: true, visible: isSet },
         ...mixItems.map((k) => ({
           key: `count_${k}`,
           label: `insert.preset.${k}`,
@@ -76,9 +103,11 @@ export const insertSchema: ModelSchema = {
         { key: "gridY", label: "bin.gridY", type: "number", default: 1, min: 1, max: 10, step: 1, visible: (p) => isBin(p) && !(isMix(p) && p.autoSize === true) },
         { key: "width", label: "insert.width", type: "number", default: 80, min: 10, max: 1000, step: 0.5, unit: "mm", visible: (p) => !isBin(p) },
         { key: "length", label: "insert.length", type: "number", default: 60, min: 10, max: 1000, step: 0.5, unit: "mm", visible: (p) => !isBin(p) },
+        { key: "fromBox", label: "insert.fromBox", type: "action", run: fitToBox, visible: (p) => !isBin(p) },
+        { key: "cornerRadius", label: "box.cornerRadius", type: "number", default: 2, min: 0.5, max: 50, step: 0.5, unit: "mm", visible: (p) => !isBin(p), advanced: true },
         { key: "heightMode", label: "insert.heightMode", type: "select", default: "auto", options: ["auto", "units"], visible: isBin, advanced: true },
         { key: "heightUnits", label: "bin.heightUnits", type: "number", default: 3, min: 2, max: 30, step: 1, visible: (p) => isBin(p) && p.heightMode === "units", advanced: true },
-        { key: "floor", label: "bin.floor", type: "number", default: 1.2, min: 0.6, max: 10, step: 0.1, unit: "mm", advanced: true },
+        { key: "floor", label: "bin.floor", type: "number", default: 1.5, min: 0.6, max: 10, step: 0.1, unit: "mm", advanced: true },
         { key: "lip", label: "bin.lip", type: "bool", default: true, visible: isBin, advanced: true },
       ],
     },
@@ -90,6 +119,7 @@ export const insertSchema: ModelSchema = {
         { key: "magnetDepth", label: "bp.magnetDepth", type: "number", default: 2.4, min: 0.5, max: 4, step: 0.05, unit: "mm", visible: (p) => isBin(p) && p.magnets === true },
       ],
     },
+    accentGroup,
     printerGroup,
   ],
 };
