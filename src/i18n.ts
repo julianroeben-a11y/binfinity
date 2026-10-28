@@ -3,7 +3,6 @@ import type { Message } from "./models/types";
 type Dict = Record<string, string>;
 
 const en: Dict = {
-  "app.tagline": "Parametric Gridfinity & storage generator",
   "app.loading": "Loading CAD engine…",
   "app.building": "Building model…",
   "app.meshing": "Preparing preview…",
@@ -15,7 +14,17 @@ const en: Dict = {
   "model.baseplate": "Baseplate",
   "model.bin": "Bin",
   "model.box": "Box",
-  "model.soon": "coming soon",
+  "area.gridfinity": "Gridfinity",
+  "area.organizer": "Organizer",
+  "area.drawer": "Drawer",
+  "form.tab.main": "Basics",
+  "form.tab.details": "Details",
+  "form.tab.print": "Print",
+  "estimate.filament": "Filament",
+  "estimate.time": "Print time",
+  "estimate.changes": "Colour changes",
+  "estimate.grams": "about {g} g",
+  "estimate.hint": "Rough estimate for PLA, 0.2 mm layers, two walls and {infill} % infill.",
 
   "group.size": "Size",
   "form.more": "More settings",
@@ -246,7 +255,6 @@ const en: Dict = {
 };
 
 const de: Dict = {
-  "app.tagline": "Parametrischer Gridfinity- & Aufbewahrungs-Generator",
   "app.loading": "CAD-Engine wird geladen…",
   "app.building": "Modell wird erstellt…",
   "app.meshing": "Vorschau wird vorbereitet…",
@@ -258,7 +266,17 @@ const de: Dict = {
   "model.baseplate": "Baseplate",
   "model.bin": "Bin",
   "model.box": "Box",
-  "model.soon": "bald",
+  "area.gridfinity": "Gridfinity",
+  "area.organizer": "Organizer",
+  "area.drawer": "Schublade",
+  "form.tab.main": "Grundlagen",
+  "form.tab.details": "Details",
+  "form.tab.print": "Druck",
+  "estimate.filament": "Filament",
+  "estimate.time": "Druckzeit",
+  "estimate.changes": "Farbwechsel",
+  "estimate.grams": "ca. {g} g",
+  "estimate.hint": "Grobe Schätzung für PLA, 0,2 mm Schichten, zwei Wände und {infill} % Infill.",
 
   "group.size": "Größe",
   "form.more": "Weitere Einstellungen",

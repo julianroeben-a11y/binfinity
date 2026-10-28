@@ -13,20 +13,25 @@
       <a class="brand" href="./" aria-label="Binfinity">
         <img src="./favicon.svg" alt="" width="28" height="28" />
         <span class="brand-name">Binfinity</span>
-        <span class="brand-tag" data-i18n="app.tagline"></span>
       </a>
-      <nav id="models" class="models" aria-label="Model"></nav>
+      <nav id="areas" class="areas" aria-label="Bereich"></nav>
       <div class="topbar-right">
         <a id="version" class="version" target="_blank" rel="noopener"></a>
         <button type="button" id="update" class="small" hidden></button>
+        <button type="button" id="share" class="small" data-i18n="export.share"></button>
         <label class="lang"><span class="sr-only" data-i18n="app.language"></span><select id="lang"></select></label>
         <a class="source" href="https://github.com/julianroeben-a11y/binfinity" target="_blank" rel="noopener" data-i18n="app.source"></a>
       </div>
     </header>
     <main class="layout">
+      <nav id="rail" class="rail" aria-label="Modell"></nav>
       <aside class="panel">
+        <div class="panel-head">
+          <h1 id="model-title" class="model-title"></h1>
+        </div>
         <form id="form" class="form" onsubmit="return false"></form>
         <div class="export">
+          <dl id="estimate" class="estimate" hidden></dl>
           <div class="export-buttons">
             <button type="button" class="primary" data-export="3mf" data-i18n="export.3mf"></button>
             <button type="button" data-export="stl" data-i18n="export.stl"></button>
@@ -42,10 +47,10 @@
             <button type="button" class="ghost" data-view="plates" aria-pressed="true" data-i18n="view.plates"></button>
             <button type="button" class="ghost" data-view="assembled" aria-pressed="false" data-i18n="view.assembled"></button>
           </div>
+          <span class="overlay-gap"></span>
           <label class="swatch ghost"><input type="color" id="color-body" value="#4f8fd6" /><span data-i18n="view.color"></span></label>
           <label class="swatch ghost"><input type="color" id="color-accent" value="#e3a33b" /><span data-i18n="view.accentColor"></span></label>
           <button type="button" id="reset-view" class="ghost" data-i18n="view.reset"></button>
-          <button type="button" id="share" class="ghost" data-i18n="export.share"></button>
         </div>
         <div class="overlay overlay-bottom">
           <p id="status" class="status" role="status" aria-live="polite"></p>

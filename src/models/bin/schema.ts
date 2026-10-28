@@ -10,7 +10,7 @@ export const binSchema: ModelSchema = {
   groups: [
     {
       title: "group.size",
-      open: true,
+      tab: "main",
       fields: [
         { key: "gridX", label: "bin.gridX", type: "number", default: 2, min: 1, max: 10, step: 1 },
         { key: "gridY", label: "bin.gridY", type: "number", default: 1, min: 1, max: 10, step: 1 },
@@ -22,6 +22,7 @@ export const binSchema: ModelSchema = {
     },
     {
       title: "group.compartments",
+      tab: "main",
       fields: [
         { key: "divX", label: "bin.divX", type: "number", default: 1, min: 1, max: 12, step: 1 },
         { key: "divY", label: "bin.divY", type: "number", default: 1, min: 1, max: 12, step: 1 },

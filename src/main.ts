@@ -8,13 +8,21 @@ import { insertSchema } from "./models/insert/schema";
 import { sanitize, type Message, type ModelSchema, type Params } from "./models/types";
 import { renderForm } from "./ui/form";
 import { initUpdater } from "./ui/update";
+import { icon, modelIcons } from "./ui/icons";
 import { Viewer } from "./ui/viewer";
 import { CadClient } from "./worker/client";
 import type { ExportFile, ExportFormat } from "./worker/protocol";
 
 const schemas: Record<string, ModelSchema> = { baseplate: baseplateSchema, bin: binSchema, box: boxSchema, insert: insertSchema };
-/** Models shown in the switcher but not built yet. */
-const upcoming: string[] = [];
+
+/** The areas in the top bar and their models, shown in the rail on the left. */
+const areas: { id: string; models: string[] }[] = [
+  { id: "gridfinity", models: ["baseplate", "bin", "insert"] },
+  { id: "organizer", models: ["box"] },
+];
+const areaOf = (model: string) => areas.find((a) => a.models.includes(model))!;
+/** Model last used in each area, so switching areas comes back to it. */
+const lastInArea: Record<string, string> = {};
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 
@@ -53,11 +61,35 @@ function renderStatus() {
   for (const b of document.querySelectorAll<HTMLButtonElement>("[data-export]")) b.disabled = state.busy || !!state.error;
 }
 
+/** Facts shown in the estimate box under the form instead of on the stage. */
+const ESTIMATE_FACTS = ["fact.estimate", "fact.colourChanges"];
+
 function renderInfo(facts: Message[], warnings: Message[]) {
   const facts$ = $("#facts");
-  facts$.replaceChildren(...facts.map((f) => Object.assign(document.createElement("li"), { textContent: tm(f) })));
+  const chips = facts.filter((f) => !ESTIMATE_FACTS.includes(f.key));
+  facts$.replaceChildren(...chips.map((f) => Object.assign(document.createElement("li"), { textContent: tm(f) })));
+  renderEstimate(facts);
   const warn$ = $("#warnings");
   warn$.replaceChildren(...warnings.map((w) => Object.assign(document.createElement("li"), { textContent: tm(w) })));
+}
+
+function renderEstimate(facts: Message[]) {
+  const est = facts.find((f) => f.key === "fact.estimate");
+  const changes = facts.find((f) => f.key === "fact.colourChanges");
+  const box = $("#estimate");
+  box.hidden = !est;
+  if (!est) return;
+  const item = (label: string, value: string) => {
+    const div = document.createElement("div");
+    div.append(Object.assign(document.createElement("dt"), { textContent: label }), Object.assign(document.createElement("dd"), { textContent: value }));
+    return div;
+  };
+  box.replaceChildren(
+    item(t("estimate.filament"), tm({ key: "estimate.grams", vars: est.vars })),
+    item(t("estimate.time"), String(est.vars?.time ?? "")),
+    item(t("estimate.changes"), String(changes?.vars?.n ?? 0)),
+  );
+  box.title = tm({ key: "estimate.hint", vars: est.vars });
 }
 
 let lastInfo: { facts: Message[]; warnings: Message[] } = { facts: [], warnings: [] };
@@ -122,30 +154,36 @@ async function doExport(format: ExportFormat) {
   renderStatus();
 }
 
-function renderModelTabs() {
-  const nav = $("#models");
-  nav.replaceChildren();
-  for (const id of Object.keys(schemas)) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = t(`model.${id}`);
-    b.setAttribute("aria-pressed", String(id === state.model));
-    b.addEventListener("click", () => selectModel(id));
-    nav.append(b);
-  }
-  for (const id of upcoming) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.disabled = true;
-    b.innerHTML = `${t(`model.${id}`)} <small>${t("model.soon")}</small>`;
-    nav.append(b);
-  }
+function renderNav() {
+  const current = areaOf(state.model);
+  $("#areas").replaceChildren(
+    ...areas.map((a) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = t(`area.${a.id}`);
+      b.setAttribute("aria-pressed", String(a === current));
+      b.addEventListener("click", () => a !== current && selectModel(lastInArea[a.id] ?? a.models[0]));
+      return b;
+    }),
+  );
+  $("#rail").replaceChildren(
+    ...current.models.map((id) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "rail-item";
+      b.setAttribute("aria-pressed", String(id === state.model));
+      b.append(icon(modelIcons[id]), Object.assign(document.createElement("span"), { textContent: t(`model.${id}`) }));
+      b.addEventListener("click", () => id !== state.model && selectModel(id));
+      return b;
+    }),
+  );
 }
 
 function renderAll() {
   document.title = `Binfinity · ${t(`model.${state.model}`)}`;
   for (const el of document.querySelectorAll<HTMLElement>("[data-i18n]")) el.textContent = t(el.dataset.i18n!);
-  renderModelTabs();
+  renderNav();
+  $("#model-title").textContent = t(`model.${state.model}`);
   renderForm(
     $("#form"),
     schemas[state.model],
@@ -185,6 +223,7 @@ function remember() {
 function selectModel(id: string, raw?: Record<string, unknown>) {
   if (id !== state.model) viewer.reframeNext();
   state.model = id;
+  lastInArea[areaOf(id).id] = id;
   state.params = sanitize(schemas[id], raw ?? remembered[id] ?? {});
   remember();
   renderAll();

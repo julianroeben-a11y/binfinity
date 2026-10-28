@@ -66,7 +66,7 @@ export const insertSchema: ModelSchema = {
   groups: [
     {
       title: "group.items",
-      open: true,
+      tab: "main",
       fields: [
         { key: "preset", label: "insert.preset", type: "select", default: "hexbit", options: [...Object.keys(presets), "custom"], presets },
         { key: "opening", label: "insert.opening", type: "select", default: "hex", options: ["round", "hex", "slot", "set", "mix"], advanced: true },
@@ -95,7 +95,7 @@ export const insertSchema: ModelSchema = {
     },
     {
       title: "group.size",
-      open: true,
+      tab: "main",
       fields: [
         { key: "form", label: "insert.form", type: "select", default: "bin", options: ["bin", "loose"] },
         { key: "autoSize", label: "insert.autoSize", type: "bool", default: true, visible: (p) => isBin(p) && isMix(p) },
