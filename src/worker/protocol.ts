@@ -4,7 +4,7 @@ export type ExportFormat = "3mf" | "stl";
 
 export type Request =
   | { type: "generate"; id: number; model: string; params: Params }
-  | { type: "export"; id: number; format: ExportFormat; quality: "normal" | "fine" };
+  | { type: "export"; id: number; format: ExportFormat; quality: "normal" | "fine"; colors?: { body: string; accent: string } };
 
 export interface PreviewMesh {
   positions: Float32Array;

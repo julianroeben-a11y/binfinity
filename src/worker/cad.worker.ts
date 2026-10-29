@@ -167,7 +167,7 @@ async function handle(req: Request) {
   let files: ExportFile[];
   if (req.format === "3mf") {
     const parts = current.pieces.map((p, i) => ({ name: p.name, mesh: meshes[i], accent: accents[i] ?? undefined }));
-    files = [{ name: `${base}.3mf`, bytes: write3mf(parts, base) }];
+    files = [{ name: `${base}.3mf`, bytes: write3mf(parts, base, req.colors) }];
   } else {
     // STL has no notion of separate objects, so write one file per piece and
     // let the UI zip them when there is more than one.

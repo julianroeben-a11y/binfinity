@@ -149,7 +149,7 @@ async function doExport(format: ExportFormat) {
   renderStatus();
   try {
     const fine = $<HTMLInputElement>("#fine").checked;
-    const { files } = await cad.export(format, fine ? "fine" : "normal");
+    const { files } = await cad.export(format, fine ? "fine" : "normal", { body: colorInputs[0].value, accent: colorInputs[1].value });
     if (files.length === 1) {
       download(files[0].name, files[0].bytes, format === "3mf" ? "model/3mf" : "model/stl");
     } else {

@@ -88,10 +88,11 @@ export class CadClient {
     }
   }
 
-  async export(format: ExportFormat, quality: "normal" | "fine"): Promise<ExportResult> {
+  /** `colors` are the preview colours; a two-colour 3MF carries them for the slicer. */
+  async export(format: ExportFormat, quality: "normal" | "fine", colors?: { body: string; accent: string }): Promise<ExportResult> {
     this.exporting = true;
     try {
-      const res = await this.send({ type: "export", format, quality });
+      const res = await this.send({ type: "export", format, quality, colors });
       if (res === SUPERSEDED) throw { key: "err.nothingToExport" };
       return res as ExportResult;
     } finally {
