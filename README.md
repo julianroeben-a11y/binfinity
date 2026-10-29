@@ -52,7 +52,7 @@ The app has three areas: **Drawer** (plan a whole drawer), **Gridfinity** (basep
 
 **General**
 - Compact form: models in a rail on the left, settings in three tabs (basics, details, print). Settings are kept per model while you switch.
-- **Colour accent**: the top millimetres (and engraved text) become a second part for filament 2, already assigned in the 3MF for Bambu Studio / Orca. Preview colours are adjustable.
+- **Colour accent**: the top millimetres (and engraved text) become a second part for filament 2. The 3MF carries the two preview colours as standard 3MF colours; Bambu Studio maps them to your filaments when you open the file. Preview colours are adjustable.
 - Filament and print time estimate (PLA, 0.2 mm layers, 20 % infill) and the number of filament changes.
 - Live 3D preview on your print bed(s), or assembled; shareable links (all parameters live in the URL).
 - Parts are centred on the bed; anything that doesn't fit one bed is spread over several.
